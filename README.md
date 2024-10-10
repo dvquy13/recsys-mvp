@@ -13,3 +13,4 @@
 
 # Run
 - Run `docker compose -f compose.yml up -d mlflow_server redis` to start MLflow Server and Redis
+- Run `docker compose -f compose.training.yml run training_pipeline` to train the model

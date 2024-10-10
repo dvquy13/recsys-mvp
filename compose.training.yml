@@ -1,0 +1,13 @@
+services:
+  training_pipeline:
+    build:
+      context: .
+      dockerfile: training.Dockerfile
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+    volumes:
+      - ./notebooks/output:/app/notebooks/output
+
+networks:
+  recsys-mvp:
+    external: true
