@@ -1,0 +1,29 @@
+services:
+  training_pipeline:
+    build:
+      context: .
+      dockerfile: training.Dockerfile
+    env_file:
+      - .env
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+    volumes:
+      - ./notebooks/output:/app/notebooks/output
+
+  batch_reco_pipeline:
+    build:
+      context: .
+      dockerfile: training.Dockerfile
+    env_file:
+      - .env
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./notebooks/output:/app/notebooks/output
+    entrypoint: ["poetry", "run", "python", "00-batch-reco-pipeline.py"]
+
+networks:
+  recsys-mvp:
+    external: true

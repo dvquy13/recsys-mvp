@@ -30,7 +30,7 @@ RUN poetry install --no-root --without dev
 RUN mkdir data
 COPY notebooks/*.ipynb ./notebooks/
 COPY notebooks/*.py ./notebooks/
-COPY src/* ./src/
+COPY src/ ./src/
 
 WORKDIR /app/notebooks
 
