@@ -4,8 +4,11 @@
 include .env
 export
 
-mlflow-up:
-	docker compose -f compose.ml-platform.yml up -d
+ml-platform-up:
+	docker compose -f compose.yml up -d mlflow_server redis
+
+ml-platform-down:
+	docker compose -f compose.yml down
 
 notebook-up:
 	poetry run jupyter lab --port 8888 --host 0.0.0.0
