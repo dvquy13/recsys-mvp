@@ -25,8 +25,9 @@ WORKDIR /app
 COPY poetry.lock pyproject.toml ./
 
 # Install Python dependencies using Poetry
-RUN poetry install --no-root --no-dev
+RUN poetry install --no-root --without dev
 
+RUN mkdir data
 COPY notebooks/*.ipynb ./notebooks/
 COPY notebooks/*.py ./notebooks/
 COPY src/* ./src/
