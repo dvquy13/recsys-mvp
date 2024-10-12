@@ -26,5 +26,11 @@
 - Run `docker compose -f compose.pipeline.yml run --rm --build training_pipeline` to train the model
 - Run `docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline` to run batch recommendations
 
+# API
+```shell
+make requirements-txt
+docker compose -f compose.api.yml up
+```
+
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.
