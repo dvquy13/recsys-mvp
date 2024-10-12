@@ -5,9 +5,9 @@ include .env
 export
 
 ml-platform-up:
-	docker compose -f compose.yml up -d mlflow_server redis
+	docker compose -f compose.yml up -d mlflow_server redis qdrant
 
-ml-platform-down:
+down:
 	docker compose -f compose.yml down
 
 notebook-up:

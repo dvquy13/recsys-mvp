@@ -10,13 +10,14 @@ os.makedirs(output_dir, exist_ok=True)
 logger.info(f"{run_timestamp=}")
 logger.info(f"Notebook outputs will be saved to {output_dir}")
 
+pm.execute_notebook("012-ann-index.ipynb", f"{output_dir}/012-ann-index.ipynb")
 pm.execute_notebook(
-    "012-batch-precompute.ipynb", f"{output_dir}/012-batch-precompute.ipynb"
+    "013-batch-precompute.ipynb", f"{output_dir}/013-batch-precompute.ipynb"
 )
 pm.execute_notebook(
-    "013-store-batch-recs.ipynb", f"{output_dir}/013-store-batch-recs.ipynb"
+    "014-store-batch-recs.ipynb", f"{output_dir}/014-store-batch-recs.ipynb"
 )
 pm.execute_notebook(
-    "014-store-user-item-sequence.ipynb",
+    "015-store-user-item-sequence.ipynb",
     f"{output_dir}/014-store-user-item-sequence.ipynb",
 )

@@ -33,11 +33,13 @@ papermill = "^2.6.0"
 jupyterlab = "^4.2.5"  # Move from dev dependencies to here since we use papermill
 numpy = "<2.0"  # Numpy 2.0 causes a lot of compatibility error
 boto3 = "^1.35.37"
+qdrant-client = "1.12.0"
 
 [tool.poetry.group.dev.dependencies]
 ipywidgets = "^8.1.5"
 black = "^24.8.0"
 isort = "^5.13.2"
+plotly = "^5.24.0"
 
 [build-system]
 requires = ["poetry-core"]

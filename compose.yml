@@ -78,6 +78,15 @@ services:
     volumes:
       - ./data/redis:/data
 
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant_storage:/qdrant/storage:z
+    restart: always
+
 networks:
   recsys-mvp:
     driver: bridge
