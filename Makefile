@@ -14,7 +14,7 @@ notebook-up:
 	poetry run jupyter lab --port 8888 --host 0.0.0.0
 
 api-up:
-	docker compose -f compose.api.yml up
+	docker compose -f compose.api.yml up -d
 
 # Create the requirements.txt file and update the torch to CPU version to reduce the image size
 requirements-txt:
