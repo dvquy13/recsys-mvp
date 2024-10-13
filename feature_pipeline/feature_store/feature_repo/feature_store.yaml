@@ -1,0 +1,26 @@
+project: recsys_mvp
+provider: local
+registry:
+    registry_type: sql
+    path: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    cache_ttl_seconds: 60
+    sqlalchemy_config_kwargs:
+        echo: false
+        pool_pre_ping: true
+online_store:
+    type: postgres
+    host: ${POSTGRES_HOST}
+    port: ${POSTGRES_PORT}
+    database: ${POSTGRES_DB}
+    db_schema: ${POSTGRES_FEATURE_STORE_ONLINE_SCHEMA}
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+offline_store:
+    type: postgres
+    host: ${POSTGRES_HOST}
+    port: ${POSTGRES_PORT}
+    database: ${POSTGRES_DB}
+    db_schema: ${POSTGRES_FEATURE_STORE_OFFLINE_SCHEMA}
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+entity_key_serialization_version: 2

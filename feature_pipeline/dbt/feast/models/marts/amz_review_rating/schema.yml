@@ -1,0 +1,6 @@
+
+version: 2
+
+models:
+  - name: user_rating_stats
+    description: "Statistics of user-asin rating"

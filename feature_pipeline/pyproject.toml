@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "fsds-recsys-l2"
+version = "0.2.0"
+description = ""
+authors = ["Quy Dinh <quydv@fullstackdatascience.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "3.11.9"
+datasets = "^2.21.0"
+pandas = "^2.2.2"
+loguru = "^0.7.2"
+python-dotenv = "^1.0.1"
+pydantic = "^2.8.2"
+sqlalchemy = "^2.0.32"
+psycopg2 = "^2.9.9"
+feast = {extras = ["postgres"], version = "^0.40.1"}
+dbt-core = "^1.8.5"
+dbt-postgres = "^1.8.2"
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.2.4"
+ipywidgets = "^8.1.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
