@@ -1,6 +1,6 @@
 services:
-  postgres:
-    container_name: postgres
+  db:
+    container_name: db
     image: postgres
     env_file:
       - .env

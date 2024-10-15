@@ -27,3 +27,7 @@ notebooks/*
 **/materials/
 
 **/db/
+**/papermill-output/
+
+airflow/logs
+airflow/plugins

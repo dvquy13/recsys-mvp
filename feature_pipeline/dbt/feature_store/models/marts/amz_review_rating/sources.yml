@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: amz_review_rating
+    database: dwh
+    schema: oltp
+    tables:
+      - name: amz_review_rating_raw

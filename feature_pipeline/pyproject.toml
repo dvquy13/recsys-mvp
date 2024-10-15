@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fsds-recsys-l2"
+name = "recsys-mvp-pipeline"
 version = "0.2.0"
 description = ""
 authors = ["Quy Dinh <quydv@fullstackdatascience.com>"]
@@ -9,19 +9,25 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "3.11.9"
 datasets = "^2.21.0"
-pandas = "^2.2.2"
+pandas = "<2.2.0"  # <2.2.0 to be compatible with sqlalchemy<2.0, else error "AttributeError: 'Engine' object has no attribute 'cursor'"
 loguru = "^0.7.2"
 python-dotenv = "^1.0.1"
 pydantic = "^2.8.2"
-sqlalchemy = "^2.0.32"
+sqlalchemy = "<2.0"  # <2.0 to be compatible with airflow 2.10.2
 psycopg2 = "^2.9.9"
 feast = {extras = ["postgres"], version = "^0.40.1"}
 dbt-core = "^1.8.5"
 dbt-postgres = "^1.8.2"
+papermill = "^2.6.0"
+apache-airflow = {extras = ["postgres"], version = "2.10.2"}
+apache-airflow-providers-docker = "^3.14.0"
+
+[tool.poetry.group.pipeline.dependencies]
+jupyterlab = "^4.2.4"
 
 [tool.poetry.group.dev.dependencies]
-jupyterlab = "^4.2.4"
 ipywidgets = "^8.1.3"
+plotly = "^5.24.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -22,17 +22,17 @@ Finally we materialize the features from offline store into online store where i
 
 # Simulate transaction data
 - Run `make up` to start PostgreSQL service
-- Execute the notebook [001-simulate-oltp.ipynb](notebooks/001-simulate-oltp.ipynb) to populate the raw data into PostgreSQL
+- Execute the notebook to populate the raw data into PostgreSQL: `poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb`
 
-# Build feature table
+# Build feature table with dbt
 ```shell
 # Create a new shell starts at root dir recsys-mvp/feature_pipeline
 export ROOT_DIR=$(pwd)
 export $(cat .env | grep -v "^#")
-cd dbt/feast
+cd dbt/feature_store
 # Specify credential for dbt to connect to PostgreSQL
 cat <<EOF > profiles.yml
-feast:
+feature_store:
   outputs:
     dev:
       dbname: $POSTGRES_DB
@@ -74,9 +74,35 @@ CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 poetry run feast materialize-incremental $CURRENT_TIME
 ```
 
+# Airflow
+
+> [!WARNING] Local Docker Airflow requires some serious resources
+> You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
+
+```shell
+# Create a new shell starts at root dir recsys-mvp/feature_pipeline
+export ROOT_DIR=$(pwd)
+cd airflow
+mkdir -p ./dags ./logs ./plugins ./config
+cd $ROOT_DIR
+export AIRFLOW_UID=$(id -u)
+sed -i '' "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$AIRFLOW_UID/" .env
+export $(cat .env | grep -v "^#")
+docker compose -f compose.airflow.yml up -d
+```
+
+# Append the holdout data to the OLTP source
+```shell
+cd $ROOT_DIR/notebooks
+poetry run papermill 002-append-holdout-to-oltp.ipynb papermill-output/002-append-holdout-to-oltp.ipynb
+# To undo, unfollow and run the following
+# poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb
+```
+
 # Clean up
 ```shell
 poetry run feast teardown
 cd $ROOT_DIR
 make down
+rm -rf db
 ```
