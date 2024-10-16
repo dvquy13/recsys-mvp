@@ -49,21 +49,18 @@ docker compose -f compose.airflow.yml up -d
 ```
 
 # Feature pipeline
-Refer to the [Feature Pipeline README](feature_pipeline/README.md)
-
 ## Simulate transaction data
-- On a new shell, navigate the feature_pipeline dir
-- Run `export ROOT_DIR=$(pwd)`
-- Run `cd .. && make ml-platform-up` to start PostgreSQL and MinIO services
-- Run `cd $ROOT_DIR/notebooks`
+- Run `export ROOT_DIR=$(pwd)` to save pointer to root dir
+- Run `make ml-platform-up` to start PostgreSQL and MinIO services
+- Run `cd $ROOT_DIR/feature_pipeline/notebooks`
 - Execute the notebook to populate the raw data into PostgreSQL: `poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb`
 
 ## Build feature table with dbt
 ```shell
-# Create a new shell starts at root dir recsys-mvp/feature_pipeline
+# Create a new shell starts at root dir recsys-mvp
 export ROOT_DIR=$(pwd)
 export $(cat .env | grep -v "^#")
-cd dbt/feature_store
+cd feature_pipeline/dbt/feature_store
 # Specify credential for dbt to connect to PostgreSQL
 cat <<EOF > profiles.yml
 feature_store:
@@ -99,10 +96,10 @@ poetry run dbt build --models marts.amz_review_rating
 ## Feature Store
 
 ```shell
-# Create a new shell starts at root dir recsys-mvp/feature_pipeline
+# Create a new shell starts at root dir recsys-mvp
 export ROOT_DIR=$(pwd)
 export $(cat .env | grep -v "^#")
-cd feature_store/feature_repo
+cd feature_pipeline/feature_store/feature_repo
 poetry run feast apply
 CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 poetry run feast materialize-incremental $CURRENT_TIME
@@ -110,7 +107,7 @@ poetry run feast materialize-incremental $CURRENT_TIME
 
 ## Append the holdout data to the OLTP source
 ```shell
-cd $ROOT_DIR/notebooks
+cd $ROOT_DIR/feature_pipeline/notebooks
 poetry run papermill 002-append-holdout-to-oltp.ipynb papermill-output/002-append-holdout-to-oltp.ipynb
 # To undo, unfollow and run the following
 # poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb
@@ -129,6 +126,8 @@ poetry run python scripts/check_oltp_max_timestamp.py
 - Now go to Airflow UI localhost:8080, username=airflow password=airflow
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
 - If not, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16.
+- Run this to undo the append: `cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb`
+
 
 ## Clean up
 ```shell
