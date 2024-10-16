@@ -19,8 +19,6 @@ feast = {extras = ["postgres"], version = "^0.40.1"}
 dbt-core = "^1.8.5"
 dbt-postgres = "^1.8.2"
 papermill = "^2.6.0"
-apache-airflow = {extras = ["postgres"], version = "2.10.2"}
-apache-airflow-providers-docker = "^3.14.0"
 
 [tool.poetry.group.pipeline.dependencies]
 jupyterlab = "^4.2.4"

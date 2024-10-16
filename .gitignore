@@ -26,3 +26,9 @@ mlruns/*
 **/*.ckpt
 
 redis_data/
+
+airflow/logs
+airflow/plugins
+
+**/db/
+**/papermill-output/

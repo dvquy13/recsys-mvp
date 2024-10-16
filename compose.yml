@@ -70,9 +70,9 @@ services:
         --host 0.0.0.0
         --port 5000
 
-  redis:
+  kv_store:
     image: redis:7.4
-    container_name: redis
+    container_name: kv_store
     ports:
       - "${REDIS_PORT}:6379"
     volumes:
@@ -86,6 +86,20 @@ services:
     volumes:
       - ./data/qdrant_storage:/qdrant/storage:z
     restart: always
+
+  dwh:
+    container_name: dwh
+    image: postgres
+    env_file:
+      - .env
+    environment:
+      PGDATA: /data/postgres
+    volumes:
+       - ./db:/data/postgres
+       # Run scripts to create schemas upon startup
+       - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
 
 networks:
   recsys-mvp:

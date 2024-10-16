@@ -7,6 +7,7 @@ services:
       - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+      - S3_ENDPOINT_URL=http://minio:9000
     volumes:
       - ./notebooks/output:/app/notebooks/output
 
@@ -18,8 +19,9 @@ services:
       - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow_server:5000
-      - REDIS_HOST=redis
+      - REDIS_HOST=kv_store
       - QDRANT_HOST=http://qdrant
+      - S3_ENDPOINT_URL=http://minio:9000
     volumes:
       - ./notebooks/output:/app/notebooks/output
     entrypoint: ["poetry", "run", "python", "00-batch-reco-pipeline.py"]

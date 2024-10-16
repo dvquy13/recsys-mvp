@@ -28,6 +28,3 @@ notebooks/*
 
 **/db/
 **/papermill-output/
-
-airflow/logs
-airflow/plugins

@@ -21,7 +21,10 @@ Finally we materialize the features from offline store into online store where i
 - Install Python dependencies with Poetry: `poetry install`
 
 # Simulate transaction data
-- Run `make up` to start PostgreSQL service
+- On a new shell, navigate the feature_pipeline dir
+- Run `export ROOT_DIR=$(pwd)`
+- Run `cd .. && make ml-platform-up` to start PostgreSQL and MinIO services
+- Run `cd $ROOT_DIR/notebooks`
 - Execute the notebook to populate the raw data into PostgreSQL: `poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb`
 
 # Build feature table with dbt
@@ -72,23 +75,6 @@ cd feature_store/feature_repo
 poetry run feast apply
 CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 poetry run feast materialize-incremental $CURRENT_TIME
-```
-
-# Airflow
-
-> [!WARNING] Local Docker Airflow requires some serious resources
-> You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
-
-```shell
-# Create a new shell starts at root dir recsys-mvp/feature_pipeline
-export ROOT_DIR=$(pwd)
-cd airflow
-mkdir -p ./dags ./logs ./plugins ./config
-cd $ROOT_DIR
-export AIRFLOW_UID=$(id -u)
-sed -i '' "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$AIRFLOW_UID/" .env
-export $(cat .env | grep -v "^#")
-docker compose -f compose.airflow.yml up -d
 ```
 
 # Append the holdout data to the OLTP source
