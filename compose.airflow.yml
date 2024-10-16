@@ -74,6 +74,9 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # Below two settings are to make the scheduler scan new DAGS faster
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+    AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 30
   volumes:
     - ./feature_pipeline/dags:/opt/airflow/dags/feature_pipeline
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs

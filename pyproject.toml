@@ -37,6 +37,10 @@ tensorboard = "^2.18.0"
 [tool.poetry.group.pipeline.dependencies]
 apache-airflow = {extras = ["postgres"], version = "2.10.2"}
 apache-airflow-providers-docker = "^3.14.0"
+dbt-core = "^1.8.5"
+dbt-postgres = "^1.8.2"
+psycopg2 = "^2.9.9"
+feast = {extras = ["postgres"], version = "^0.40.1"}
 
 [tool.poetry.group.dev.dependencies]
 ipywidgets = "^8.1.5"

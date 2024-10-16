@@ -7,6 +7,9 @@ export
 ml-platform-up:
 	docker compose -f compose.yml up -d mlflow_server kv_store qdrant dwh
 
+airflow-up:
+	docker compose -f compose.airflow.yml up -d
+
 down:
 	docker compose -f compose.yml down
 

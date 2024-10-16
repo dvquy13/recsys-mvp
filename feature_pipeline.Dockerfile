@@ -32,6 +32,10 @@ RUN poetry install --no-root --with pipeline,training --without dev
 COPY feature_pipeline/notebooks/*.ipynb ./feature_pipeline/notebooks/
 COPY feature_pipeline/notebooks/*.py ./feature_pipeline/notebooks/
 COPY feature_pipeline/src/ ./feature_pipeline/src/
+# For the sake of a concept introduction tutorial we would copy the dbt and feature_store folders over into Docker
+# But in practice this might pose a security risk since the credentials are stored in plain text inside this Docker image
+COPY feature_pipeline/dbt/ ./feature_pipeline/dbt/
+COPY feature_pipeline/feature_store/ ./feature_pipeline/feature_store/
 COPY src/ ./src/
 
 WORKDIR /app/feature_pipeline/notebooks

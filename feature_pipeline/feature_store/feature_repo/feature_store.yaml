@@ -2,7 +2,8 @@ project: recsys_mvp
 provider: local
 registry:
     registry_type: sql
-    path: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    # Need to use postgresql+psycopg2 otherwise using postgresql+psycopg would break since we're using SQLAlchemy < 2 which is required by Airflow client 2.10.2
+    path: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
     cache_ttl_seconds: 60
     sqlalchemy_config_kwargs:
         echo: false

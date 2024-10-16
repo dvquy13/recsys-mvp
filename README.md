@@ -49,6 +49,8 @@ docker compose -f compose.airflow.yml up -d
 ```
 
 # Feature pipeline
+The goal of feature pipeline is to keep the feature in feature store updated via daily batch jobs.
+
 ## Simulate transaction data
 - Run `export ROOT_DIR=$(pwd)` to save pointer to root dir
 - Run `make ml-platform-up` to start PostgreSQL and MinIO services
@@ -114,6 +116,8 @@ poetry run papermill 002-append-holdout-to-oltp.ipynb papermill-output/002-appen
 ```
 
 ## Run the feature pipeline using Airflow
+
+### Append holdout data to OLTP
 ```shell
 # On a new shell at recsys-mvp root
 export ROOT_DIR=$(pwd)
@@ -127,6 +131,9 @@ poetry run python scripts/check_oltp_max_timestamp.py
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
 - If not, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16.
 - Run this to undo the append: `cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb`
+
+### Update features
+- Trigger run for DAG `udpate_features`
 
 
 ## Clean up
