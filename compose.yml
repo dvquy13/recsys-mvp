@@ -72,12 +72,22 @@ services:
         --port 5000
 
   kv_store:
-    image: redis:7.4
+    # Redis is limited to 7.2-bookworm due to licencing change
+    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
+    image: redis:7.2-bookworm
     container_name: kv_store
     ports:
       - "${REDIS_PORT}:6379"
     volumes:
       - ./data/redis:/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
 
   qdrant:
     image: qdrant/qdrant:v1.12.0
@@ -96,11 +106,17 @@ services:
     environment:
       PGDATA: /data/postgres
     volumes:
-       - ./db:/data/postgres
+       - ./data/postgres:/data/postgres
        # Run scripts to create schemas upon startup
        - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow", "-p", "5432"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
 
 networks:
   recsys-mvp:

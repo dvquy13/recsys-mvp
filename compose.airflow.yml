@@ -56,9 +56,10 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5433/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5433/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6380/0
+    # Reuse Postgres and Redis from compose.yml
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@dwh:5432/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@dwh:5432/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@kv_store:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -84,48 +85,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - /var/run/docker.sock:/var/run/docker.sock  # Mount docker socket to communicate with docker on MacOS
   user: "${AIRFLOW_UID:-50000}:0"
-  depends_on:
-    &airflow-common-depends-on
-    redis:
-      condition: service_healthy
-    postgres:
-      condition: service_healthy
 
 services:
-  postgres:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
-    command: ["postgres", "-p", "5433"]
-    volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
-    expose:
-      - 5433
-    healthcheck:
-      # Updated healthcheck to use port 5433
-      test: ["CMD", "pg_isready", "-U", "airflow", "-p", "5433"]
-      interval: 10s
-      retries: 5
-      start_period: 5s
-    restart: always
-
-  redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
-    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
-    command: ["redis-server", "--port", "6380"]  # Set Redis to listen on port 6380
-    expose:
-      - 6380
-    healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6380", "ping"]  # Healthcheck for Redis on port 6380
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
-
   airflow-webserver:
     <<: *airflow-common
     command: webserver
@@ -139,7 +100,6 @@ services:
       start_period: 30s
     restart: always
     depends_on:
-      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
 
@@ -154,7 +114,6 @@ services:
       start_period: 30s
     restart: always
     depends_on:
-      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
 
@@ -177,7 +136,6 @@ services:
       DUMB_INIT_SETSID: "0"
     restart: always
     depends_on:
-      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
 
@@ -192,7 +150,6 @@ services:
       start_period: 30s
     restart: always
     depends_on:
-      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
 
@@ -291,12 +248,8 @@ services:
       start_period: 30s
     restart: always
     depends_on:
-      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
-volumes:
-  postgres-db-volume:
 
 networks:
   recsys-mvp:

@@ -107,14 +107,6 @@ CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 poetry run feast materialize-incremental $CURRENT_TIME
 ```
 
-## Append the holdout data to the OLTP source
-```shell
-cd $ROOT_DIR/feature_pipeline/notebooks
-poetry run papermill 002-append-holdout-to-oltp.ipynb papermill-output/002-append-holdout-to-oltp.ipynb
-# To undo, unfollow and run the following
-# poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb
-```
-
 ## Run the feature pipeline using Airflow
 
 ### Append holdout data to OLTP
