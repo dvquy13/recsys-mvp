@@ -52,9 +52,9 @@ def run_demo():
     print("\n--- Online features again with updated values from a stream push---")
     fetch_online_features(store, source="push")
 
-    print("\n--- Run feast teardown ---")
+    # print("\n--- Run feast teardown ---")
     # Looks like there is currently a bug that prevent the date clean up on Postgre
-    store.teardown()
+    # store.teardown()
 
 
 def fetch_historical_features_entity_df(store: FeatureStore, for_batch_scoring: bool):

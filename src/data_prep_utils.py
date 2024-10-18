@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.sparse import issparse
 from tqdm.auto import tqdm
 
@@ -27,3 +28,16 @@ def chunk_transform(df, pipeline, chunk_size=1000):
     transformed_full = np.vstack(transformed_chunks)
 
     return transformed_full
+
+
+def parse_dt(df, cols=["timestamp"]):
+    return df.assign(
+        **{
+            col: lambda df: pd.to_datetime(df[col].astype(int), unit="ms")
+            for col in cols
+        }
+    )
+
+
+def handle_dtypes(df):
+    return df.assign(rating=lambda df: df["rating"].astype(float))

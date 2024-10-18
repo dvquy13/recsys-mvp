@@ -35,7 +35,8 @@ dag = DAG(
     "update_features",
     default_args=default_args,
     description="Update features",
-    schedule_interval="36 16 * * *",  # 0:36 AM GMT+8
+    catchup=False,
+    schedule_interval="5 18 * * *",  # 2:05 AM GMT+8
 )
 
 t1 = DockerOperator(

@@ -33,6 +33,7 @@ dag = DAG(
     default_args=default_args,
     description="Append OLTP",
     schedule_interval=timedelta(days=1),
+    catchup=False,
 )
 
 t1 = DockerOperator(
