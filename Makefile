@@ -8,15 +8,16 @@ ml-platform-up:
 	docker compose -f compose.yml up -d mlflow_server kv_store qdrant dwh
 
 ml-platform-logs:
-	docker compose -f compose.yml logs -f
+# For make command that follows logs, if not add prefix '-' then when interrupet the command, it will complain with Error 130
+	- docker compose -f compose.yml logs -f
 
 airflow-up:
 	docker compose -f compose.airflow.yml up -d
 
 airflow-logs:
-	docker compose -f compose.airflow.yml logs -f
+	- docker compose -f compose.airflow.yml logs -f
 
-notebook-up:
+lab:
 	poetry run jupyter lab --port 8888 --host 0.0.0.0
 
 api-up:
@@ -32,12 +33,14 @@ build-pipeline:
 	docker build -f feature_pipeline.Dockerfile . -t recsys-mvp-pipeline:0.0.1
 
 feature-server-up:
-	docker compose -f compose.yml up -d feature_server feature_store_ui
+	docker compose -f compose.yml up -d feature_online_server feature_offline_server feature_store_ui
 
 down:
 	docker compose -f compose.yml down
 	docker compose -f compose.airflow.yml down
 	docker compose -f compose.pipeline.yml down
 	docker compose -f compose.api.yml down
+
+clean:
 	rm -rf data/redis
 	rm -rf data/postgres

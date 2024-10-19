@@ -1,0 +1,15 @@
+# This file is to specify the feature store configuration to get training data from offline feature server
+project: recsys_mvp
+registry:
+    registry_type: sql
+    path: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    cache_ttl_seconds: 60
+    sqlalchemy_config_kwargs:
+        echo: false
+        pool_pre_ping: true
+provider: local
+offline_store:
+    type: remote
+    host: localhost
+    port: ${FEAST_OFFLINE_SERVER_PORT}
+entity_key_serialization_version: 2

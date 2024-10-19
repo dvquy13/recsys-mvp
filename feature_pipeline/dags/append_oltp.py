@@ -32,8 +32,10 @@ dag = DAG(
     "append_oltp",
     default_args=default_args,
     description="Append OLTP",
-    schedule_interval=timedelta(days=1),
     catchup=False,
+    # Need to declare schedule_interval here else even catchup=False when first triggered Airflow would create two runs
+    # For this workflow we really do not want to create two runs because it would append data two times leading to duplicated in target table
+    schedule_interval="5 18 * * *",  # 2:05 AM GMT+8
 )
 
 t1 = DockerOperator(

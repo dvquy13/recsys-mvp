@@ -25,7 +25,7 @@
 - To check logs: `make ml-platform-logs`
 
 # Dev
-- Run `make notebook-up` to start Jupyter Lab. The `.env` file would define connection credentials necessary to connect with the supporting services.
+- Run `make lab` to start Jupyter Lab. The `.env` file would define connection credentials necessary to connect with the supporting services.
 - To prep data and train the model, run: `poetry run python 00-training-pipeline.py`
 
 # Docker Run
@@ -100,12 +100,13 @@ sources:
 EOF
 
 echo "Run dbt tranformation"
+poetry run dbt deps
 poetry run dbt build --models marts.amz_review_rating
 ```
 
 ## Feature Store
 
-### Initial run
+### Initial materialization
 ```shell
 # CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 # We can not use CURRENT_TIME here since it would mark the latest ingestion at CURRENT_TIME which is way pass the last timestamp for our data
@@ -123,13 +124,13 @@ Set up Feature Server to serve online features
 ```shell
 cd $ROOT_DIR
 make feature-server-up
-sleep 5 && echo "Visit Feate Store Web UI at: http://localhost:${FEAST_FEATURE_STORE_UI_PORT:-8887}"
+sleep 5 && echo "Visit Feate Store Web UI at: http://localhost:${FEAST_UI_PORT:-8887}"
 ```
 
 Make feature request to Feature Server:
 ```shell
 # Create a new shell
-USER_ID=$(poetry run python scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}')
+USER_ID=$(poetry run python scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}') && echo $USER_ID
 # Use double quotes in curl -d to enable env var $USER_ID substitution
 curl -X POST \
   "http://localhost:6566/get-online-features" \
