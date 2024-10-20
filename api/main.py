@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from load_examples import custom_openapi
 from loguru import logger
 from pydantic_models import FeatureRequest
+from utils import debug_logging_decorator
 
 app = FastAPI()
 
@@ -36,6 +37,7 @@ app.openapi = lambda: custom_openapi(
 
 
 @app.get("/recs/i2i")
+@debug_logging_decorator
 async def get_recommendations_i2i(
     item_id: str = Query(
         ..., description="ID of the item to get recommendations for"
@@ -43,25 +45,18 @@ async def get_recommendations_i2i(
     count: Optional[int] = Query(10, description="Number of recommendations to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    debug_info = []
-    if debug:
-        logger.info(f"Getting recommendations for item_id: {item_id}")
-        debug_info.append(f"Getting recommendations for item_id: {item_id}")
+    logger.info(f"[DEBUG] Getting recommendations for item_id: {item_id}")
 
     # Step 1: Get recommendations for the item ID from Redis
     recommendations_key = redis_output_i2i_key_prefix + item_id
     rec_data = redis_client.get(recommendations_key)
 
     if not rec_data:
-        error_message = f"No recommendations found for item_id: {item_id}"
-        if debug:
-            logger.error(error_message)
-            debug_info.append(error_message)
+        error_message = f"[DEBUG] No recommendations found for item_id: {item_id}"
+        logger.error(error_message)
         raise HTTPException(status_code=404, detail=error_message)
 
-    if debug:
-        logger.info(f"Retrieved recommendations data: {rec_data}")
-        debug_info.append(f"Retrieved recommendations data: {rec_data}")
+    logger.info(f"Retrieved recommendations data: {rec_data}")
 
     # Parse the stored recommendation data
     rec_data_json = json.loads(rec_data)
@@ -73,20 +68,13 @@ async def get_recommendations_i2i(
         rec_item_ids = rec_item_ids[:count]
         rec_scores = rec_scores[:count]
 
-    if debug:
-        logger.info(f"Recommendations after limiting: {rec_item_ids}, {rec_scores}")
-        debug_info.append(
-            f"Recommendations after limiting: {rec_item_ids}, {rec_scores}"
-        )
+    logger.info(f"[DEBUG] Recommendations after limiting: {rec_item_ids}, {rec_scores}")
 
     # Step 3: Format and return the output
     result = {
         "item_id": item_id,
         "recommendations": {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores},
     }
-
-    if debug:
-        result["debug_info"] = debug_info
 
     return result
 
@@ -95,15 +83,13 @@ async def get_recommendations_i2i(
     "/recs/u2i/last_item_i2i",
     summary="Get recommendations for users based on their most recent items",
 )
+@debug_logging_decorator
 async def get_recommendations_u2i_last_item_i2i(
     user_id: str = Query(..., description="ID of the user"),
     count: Optional[int] = Query(10, description="Number of recommendations to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    debug_info = []
-    if debug:
-        logger.info(f"Getting recent items for user_id: {user_id}")
-        debug_info.append(f"Getting recent items for user_id: {user_id}")
+    logger.info(f"[DEBUG] Getting recent items for user_id: {user_id}")
 
     # Step 1: Get the recent items for the user
     fr = FeatureRequest(
@@ -115,9 +101,7 @@ async def get_recommendations_u2i_last_item_i2i(
     item_sequences = features["results"][1]["values"][0].split(",")
     last_item_id = item_sequences[-1]
 
-    if debug:
-        logger.info(f"Most recently interacted item: {last_item_id}")
-        debug_info.append(f"Most recently interacted item: {last_item_id}")
+    logger.info(f"[DEBUG] Most recently interacted item: {last_item_id}")
 
     # Step 2: Call the i2i endpoint internally to get recommendations for that item
     recommendations = await get_recommendations_i2i(last_item_id, count, debug)
@@ -129,13 +113,11 @@ async def get_recommendations_u2i_last_item_i2i(
         "recommendations": recommendations["recommendations"],
     }
 
-    if debug:
-        result["debug_info"] = debug_info
-
     return result
 
 
 @app.get("/recs/u2i/rerank", summary="Get recommendations for users")
+@debug_logging_decorator
 async def get_recommendations_u2i_rerank(
     user_id: str = Query(
         ..., description="ID of the user to provide recommendations for"
@@ -146,7 +128,6 @@ async def get_recommendations_u2i_rerank(
     count: Optional[int] = Query(10, description="Number of recommendations to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    debug_info = []
     # Step 1: Get popular and i2i recommendations concurrently
     popular_recs, last_item_i2i_recs = await asyncio.gather(
         get_recommendations_popular(count=top_k_retrieval, debug=False),
@@ -161,10 +142,7 @@ async def get_recommendations_u2i_rerank(
     )
     all_items = list(all_items)
 
-    if debug:
-        _msg = f"Retrieved items: {all_items}"
-        logger.info(_msg)
-        debug_info.append(_msg)
+    logger.info("[DEBUG] Retrieved items: {}", all_items)
 
     # Step 3: Get item_sequence features
     fr = FeatureRequest(
@@ -174,10 +152,11 @@ async def get_recommendations_u2i_rerank(
 
     features = await fetch_features(fr)
     item_sequences = features["results"][1]["values"][0].split(",")
-    if debug:
-        _msg = f"Retrieved features: {features}, item_sequences: {item_sequences}"
-        logger.info(_msg)
-        debug_info.append(_msg)
+    logger.info(
+        "[DEBUG] Retrieved features: {}, item_sequences: {}",
+        features,
+        item_sequences,
+    )
 
     # Step 4: Rerank
     reranked_recs = await score_seq_rating_prediction(
@@ -191,9 +170,7 @@ async def get_recommendations_u2i_rerank(
     returned_items = reranked_recs.get("item_ids", [])
     if not scores or len(scores) != len(all_items):
         error_message = "Mismatch sizes between returned scores and all items"
-        if debug:
-            logger.error(error_message)
-            debug_info.append(error_message)
+        logger.error("[DEBUG] {}", error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
     # Create a list of tuples (item_id, score)
@@ -215,35 +192,24 @@ async def get_recommendations_u2i_rerank(
         },
     }
 
-    if debug:
-        result["debug_info"] = debug_info
-
     return result
 
 
 @app.get("/recs/popular")
+@debug_logging_decorator
 async def get_recommendations_popular(
     count: Optional[int] = Query(10, description="Number of popular items to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    debug_info = []
-    if debug:
-        logger.info(f"Getting popular recommendations")
-        debug_info.append(f"Getting popular recommendations")
-
     # Step 1: Get popular recommendations from Redis
     rec_data = redis_client.get(redis_output_popular_key)
 
     if not rec_data:
-        error_message = "No popular recommendations found"
-        if debug:
-            logger.error(error_message)
-            debug_info.append(error_message)
+        error_message = "[DEBUG] No popular recommendations found"
+        logger.error()
         raise HTTPException(status_code=404, detail=error_message)
 
-    if debug:
-        logger.info(f"Retrieved popular recommendations data: {rec_data}")
-        debug_info.append(f"Retrieved popular recommendations data: {rec_data}")
+    logger.info(f"[DEBUG] Retrieved popular recommendations data: {rec_data}")
 
     # Parse the stored recommendation data
     rec_data_json = json.loads(rec_data)
@@ -255,38 +221,30 @@ async def get_recommendations_popular(
         rec_item_ids = rec_item_ids[:count]
         rec_scores = rec_scores[:count]
 
-    if debug:
-        logger.info(
-            f"Popular recommendations after limiting: {rec_item_ids}, {rec_scores}"
-        )
-        debug_info.append(
-            f"Popular recommendations after limiting: {rec_item_ids}, {rec_scores}"
-        )
+    logger.info(
+        f"[DEBUG] Popular recommendations after limiting: {rec_item_ids}, {rec_scores}"
+    )
 
     # Step 3: Format and return the output
     result = {
         "recommendations": {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores},
     }
 
-    if debug:
-        result["debug_info"] = debug_info
-
     return result
 
 
 # New endpoint to connect to external service
 @app.post("/score/seq_rating_prediction")
+@debug_logging_decorator
 async def score_seq_rating_prediction(
     user_ids: List[str],
     item_sequences: List[List[str]],
     item_ids: List[str],
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    debug_info = []
-    if debug:
-        _msg = f"Calling item2vec_predict with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
-        logger.info(_msg)
-        debug_info.append(_msg)
+    logger.info(
+        f"[DEBUG] Calling item2vec_predict with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
+    )
 
     # Step 1: Prepare the payload for the external service
     payload = {
@@ -297,10 +255,7 @@ async def score_seq_rating_prediction(
         }
     }
 
-    if debug:
-        _msg = f"Payload prepared: {payload}"
-        logger.info(_msg)
-        debug_info.append(_msg)
+    logger.info(f"[DEBUG] Payload prepared: {payload}")
 
     # Step 2: Make the POST request to the external service
     try:
@@ -316,30 +271,23 @@ async def score_seq_rating_prediction(
 
         # Step 3: Handle response
         if response.status_code == 200:
-            if debug:
-                _msg = f"Response from external service: {response.json()}"
-                logger.info(_msg)
-                debug_info.append(_msg)
+            logger.info(f"Response from external service: {response.json()}")
             result = response.json()
-            if debug:
-                result["debug_info"] = debug_info
 
             return result
         else:
-            error_message = f"External service returned an error: {response.text}"
-            if debug:
-                logger.error(error_message)
-                debug_info.append(error_message)
+            error_message = (
+                f"[DEBUG] External service returned an error: {response.text}"
+            )
+            logger.error(error_message)
             raise HTTPException(
                 status_code=response.status_code,
                 detail=error_message,
             )
 
     except httpx.HTTPError as e:
-        error_message = f"Error connecting to external service: {str(e)}"
-        if debug:
-            logger.error(error_message)
-            debug_info.append(error_message)
+        error_message = f"[DEBUG] Error connecting to external service: {str(e)}"
+        logger.error(error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
 
