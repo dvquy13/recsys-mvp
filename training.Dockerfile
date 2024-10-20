@@ -9,6 +9,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
+    # libpq-dev is needed for psycopg2
+    libpq-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,7 +33,6 @@ RUN mkdir data
 COPY notebooks/*.ipynb ./notebooks/
 COPY notebooks/*.py ./notebooks/
 COPY src/ ./src/
+COPY feature_store_offline_server.yaml ./
 
 WORKDIR /app/notebooks
-
-CMD ["poetry", "run", "python", "00-training-pipeline.py"]

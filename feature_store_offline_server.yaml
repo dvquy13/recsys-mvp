@@ -10,6 +10,6 @@ registry:
 provider: local
 offline_store:
     type: remote
-    host: localhost
+    host: ${FEAST_OFFLINE_SERVER_HOST}
     port: ${FEAST_OFFLINE_SERVER_PORT}
 entity_key_serialization_version: 2

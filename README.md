@@ -21,24 +21,11 @@
 - Install Python dependencies with Poetry: `poetry install`
 
 # Start services
+## Common services
 - Run `make ml-platform-up` to start the supporting services
 - To check logs: `make ml-platform-logs`
 
-# Dev
-- Run `make lab` to start Jupyter Lab. The `.env` file would define connection credentials necessary to connect with the supporting services.
-- To prep data and train the model, run: `poetry run python 00-training-pipeline.py`
-
-# Docker Run
-- Run `docker compose -f compose.pipeline.yml run --rm --build training_pipeline` to train the model
-- Run `docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline` to run batch recommendations
-
-# API
-```shell
-make requirements-txt
-docker compose -f compose.api.yml up
-```
-
-# Airflow
+## Airflow
 > [!WARNING] Local Docker Airflow requires some serious resources
 > You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
 
@@ -193,6 +180,17 @@ curl -X POST \
     }
   }" | jq
 echo "We should expect to see new feature values corresponding to new timestamp"
+```
+
+# Training
+- Run `docker compose -f compose.pipeline.yml run --rm --build training_pipeline` to train the models
+- Run `docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline` to run batch recommendations
+
+# API
+```shell
+make requirements-txt
+make api-up
+echo "Visit http://localhost:8000/docs to see the new APIs
 ```
 
 ## Clean up

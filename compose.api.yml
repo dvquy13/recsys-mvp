@@ -9,10 +9,11 @@ services:
       - .env
     environment:
       - REDIS_HOST=kv_store
-      - MODEL_SERVER_URL=http://model-server:3000
+      - I2V_MODEL_SERVER_URL=http://i2v_model_server:3000
+      - SEQRP_MODEL_SERVER_URL=http://seqrp_model_server:3000
 
-  model-server:
-    container_name: model-server
+  i2v_model_server:
+    container_name: i2v_model_server
     build:
       context: .
       dockerfile: model_server.Dockerfile
@@ -22,6 +23,20 @@ services:
       - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+    entrypoint: ["bentoml", "serve", "service:I2VService"]
+
+  seqrp_model_server:
+    container_name: seqrp_model_server
+    build:
+      context: .
+      dockerfile: model_server.Dockerfile
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+    entrypoint: ["bentoml", "serve", "service:SeqRPService"]
 
 networks:
   recsys-mvp:

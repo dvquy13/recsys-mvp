@@ -44,3 +44,5 @@ down:
 clean:
 	rm -rf data/redis
 	rm -rf data/postgres
+	rm -rf data/mlflow
+	rm -rf data/qdrant_storage

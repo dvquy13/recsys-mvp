@@ -30,5 +30,3 @@ COPY src /app/src
 EXPOSE 3000
 
 WORKDIR /app/model_server
-
-CMD ["bentoml", "serve", "service:I2VService"]

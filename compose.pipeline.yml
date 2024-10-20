@@ -8,8 +8,11 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow_server:5000
       - S3_ENDPOINT_URL=http://minio:9000
+      - POSTGRES_HOST=dwh
+      - FEAST_OFFLINE_SERVER_HOST=feature_offline_server
     volumes:
       - ./notebooks/output:/app/notebooks/output
+    entrypoint: ["poetry", "run", "python", "00-training-pipeline.py"]
 
   batch_reco_pipeline:
     build:

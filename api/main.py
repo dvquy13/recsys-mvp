@@ -10,11 +10,13 @@ from loguru import logger
 
 app = FastAPI()
 
-MODEL_SERVER_URL = os.getenv("MODEL_SERVER_URL", "http://localhost:3000")
+I2V_MODEL_SERVER_URL = os.getenv("I2V_MODEL_SERVER_URL", "http://localhost:3000")
+SEQRP_MODEL_SERVER_URL = os.getenv("SEQRP_MODEL_SERVER_URL", "http://localhost:3001")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", 6379)
 
-item2vec_url = f"{MODEL_SERVER_URL}/predict"
+i2v_url = f"{I2V_MODEL_SERVER_URL}/predict"
+seqrp_url = f"{SEQRP_MODEL_SERVER_URL}/predict"
 redis_client = redis.Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True
 )
@@ -224,7 +226,7 @@ async def score_i2i(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                item2vec_url,
+                i2v_url,
                 json=payload,
                 headers={
                     "accept": "application/json",
