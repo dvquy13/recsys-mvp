@@ -190,12 +190,12 @@ echo "We should expect to see new feature values corresponding to new timestamp"
 ```shell
 make requirements-txt
 make api-up
-echo "Visit http://localhost:8000/docs to see the new APIs
+echo "Visit http://localhost:8000/docs to interact with the APIs
 ```
 
 ## Clean up
 ```shell
-make down
+make clean
 ```
 
 # Troubleshooting

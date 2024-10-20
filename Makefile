@@ -44,8 +44,10 @@ down:
 	docker compose -f compose.pipeline.yml down
 	docker compose -f compose.api.yml down
 
-clean:
+remove-data:
 	rm -rf data/redis
 	rm -rf data/postgres
 	rm -rf data/mlflow
 	rm -rf data/qdrant_storage
+
+clean: down remove-data
