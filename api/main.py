@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import redis
@@ -36,47 +36,50 @@ app.openapi = lambda: custom_openapi(
 )
 
 
-@app.get("/recs/i2i")
-@debug_logging_decorator
-async def get_recommendations_i2i(
-    item_id: str = Query(
-        ..., description="ID of the item to get recommendations for"
-    ),  # ... denotes required param in FastAPI
-    count: Optional[int] = Query(10, description="Number of recommendations to return"),
-    debug: bool = Query(False, description="Enable debug logging"),
-):
-    logger.info(f"[DEBUG] Getting recommendations for item_id: {item_id}")
+async def get_user_item_sequences(user_id: str) -> List[str]:
+    fr = FeatureRequest(
+        features=["user_rating_stats:user_rating_list_10_recent_asin"],
+        entities={"user_id": [user_id]},
+    )
+    features = await fetch_features(fr)
+    item_sequence_str = features["results"][1]["values"][0]
+    item_sequences = item_sequence_str.split(",")
+    logger.debug(
+        f"Retrieved features: {features}, item_sequences: {item_sequences}",
+    )
+    return item_sequences
 
-    # Step 1: Get recommendations for the item ID from Redis
-    recommendations_key = redis_output_i2i_key_prefix + item_id
-    rec_data = redis_client.get(recommendations_key)
 
+def get_recommendations_from_redis(
+    redis_key: str, count: Optional[int]
+) -> Dict[str, Any]:
+    rec_data = redis_client.get(redis_key)
     if not rec_data:
-        error_message = f"[DEBUG] No recommendations found for item_id: {item_id}"
+        error_message = f"[DEBUG] No recommendations found for key: {redis_key}"
         logger.error(error_message)
         raise HTTPException(status_code=404, detail=error_message)
-
-    logger.info(f"Retrieved recommendations data: {rec_data}")
-
-    # Parse the stored recommendation data
     rec_data_json = json.loads(rec_data)
     rec_item_ids = rec_data_json.get("rec_item_ids", [])
     rec_scores = rec_data_json.get("rec_scores", [])
-
-    # Step 2: Limit the output by count if count is provided
     if count is not None:
         rec_item_ids = rec_item_ids[:count]
         rec_scores = rec_scores[:count]
+    return {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores}
 
-    logger.info(f"[DEBUG] Recommendations after limiting: {rec_item_ids}, {rec_scores}")
 
-    # Step 3: Format and return the output
-    result = {
+@app.get("/recs/i2i")
+@debug_logging_decorator
+async def get_recommendations_i2i(
+    item_id: str = Query(..., description="ID of the item to get recommendations for"),
+    count: Optional[int] = Query(10, description="Number of recommendations to return"),
+    debug: bool = Query(False, description="Enable debug logging"),
+):
+    redis_key = f"{redis_output_i2i_key_prefix}{item_id}"
+    recommendations = get_recommendations_from_redis(redis_key, count)
+    return {
         "item_id": item_id,
-        "recommendations": {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores},
+        "recommendations": recommendations,
     }
-
-    return result
 
 
 @app.get(
@@ -89,19 +92,13 @@ async def get_recommendations_u2i_last_item_i2i(
     count: Optional[int] = Query(10, description="Number of recommendations to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    logger.info(f"[DEBUG] Getting recent items for user_id: {user_id}")
+    logger.debug(f"Getting recent items for user_id: {user_id}")
 
     # Step 1: Get the recent items for the user
-    fr = FeatureRequest(
-        features=["user_rating_stats:user_rating_list_10_recent_asin"],
-        entities={"user_id": [user_id]},
-    )
-
-    features = await fetch_features(fr)
-    item_sequences = features["results"][1]["values"][0].split(",")
+    item_sequences = await get_user_item_sequences(user_id)
     last_item_id = item_sequences[-1]
 
-    logger.info(f"[DEBUG] Most recently interacted item: {last_item_id}")
+    logger.debug(f"Most recently interacted item: {last_item_id}")
 
     # Step 2: Call the i2i endpoint internally to get recommendations for that item
     recommendations = await get_recommendations_i2i(last_item_id, count, debug)
@@ -142,21 +139,10 @@ async def get_recommendations_u2i_rerank(
     )
     all_items = list(all_items)
 
-    logger.info("[DEBUG] Retrieved items: {}", all_items)
+    logger.debugo("Retrieved items: {}", all_items)
 
     # Step 3: Get item_sequence features
-    fr = FeatureRequest(
-        features=["user_rating_stats:user_rating_list_10_recent_asin"],
-        entities={"user_id": [user_id]},
-    )
-
-    features = await fetch_features(fr)
-    item_sequences = features["results"][1]["values"][0].split(",")
-    logger.info(
-        "[DEBUG] Retrieved features: {}, item_sequences: {}",
-        features,
-        item_sequences,
-    )
+    item_sequences = await get_user_item_sequences(user_id)
 
     # Step 4: Rerank
     reranked_recs = await score_seq_rating_prediction(
@@ -169,8 +155,8 @@ async def get_recommendations_u2i_rerank(
     scores = reranked_recs.get("scores", [])
     returned_items = reranked_recs.get("item_ids", [])
     if not scores or len(scores) != len(all_items):
-        error_message = "Mismatch sizes between returned scores and all items"
-        logger.error("[DEBUG] {}", error_message)
+        error_message = "[DEBUG] Mismatch sizes between returned scores and all items"
+        logger.debugr("{}", error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
     # Create a list of tuples (item_id, score)
@@ -201,36 +187,8 @@ async def get_recommendations_popular(
     count: Optional[int] = Query(10, description="Number of popular items to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    # Step 1: Get popular recommendations from Redis
-    rec_data = redis_client.get(redis_output_popular_key)
-
-    if not rec_data:
-        error_message = "[DEBUG] No popular recommendations found"
-        logger.error()
-        raise HTTPException(status_code=404, detail=error_message)
-
-    logger.info(f"[DEBUG] Retrieved popular recommendations data: {rec_data}")
-
-    # Parse the stored recommendation data
-    rec_data_json = json.loads(rec_data)
-    rec_item_ids = rec_data_json.get("rec_item_ids", [])
-    rec_scores = rec_data_json.get("rec_scores", [])
-
-    # Step 2: Limit the output by count if count is provided
-    if count is not None:
-        rec_item_ids = rec_item_ids[:count]
-        rec_scores = rec_scores[:count]
-
-    logger.info(
-        f"[DEBUG] Popular recommendations after limiting: {rec_item_ids}, {rec_scores}"
-    )
-
-    # Step 3: Format and return the output
-    result = {
-        "recommendations": {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores},
-    }
-
-    return result
+    recommendations = get_recommendations_from_redis(redis_output_popular_key, count)
+    return {"recommendations": recommendations}
 
 
 # New endpoint to connect to external service
@@ -242,8 +200,8 @@ async def score_seq_rating_prediction(
     item_ids: List[str],
     debug: bool = Query(False, description="Enable debug logging"),
 ):
-    logger.info(
-        f"[DEBUG] Calling item2vec_predict with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
+    logger.debug(
+        f"Calling item2vec_predict with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
     )
 
     # Step 1: Prepare the payload for the external service
@@ -255,7 +213,7 @@ async def score_seq_rating_prediction(
         }
     }
 
-    logger.info(f"[DEBUG] Payload prepared: {payload}")
+    logger.debug(f"Payload prepared: {payload}")
 
     # Step 2: Make the POST request to the external service
     try:

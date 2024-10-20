@@ -7,7 +7,7 @@ from loguru import logger
 def capture_debug_messages(debug_list):
     def sink(message):
         record = message.record
-        if record["message"].startswith("[DEBUG]"):
+        if record["level"].name == "DEBUG" or record["message"].startswith("[DEBUG]"):
             debug_list.append(record["message"])
 
     return sink

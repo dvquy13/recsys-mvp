@@ -1,7 +1,7 @@
 from fastapi.openapi.utils import get_openapi
 
 
-def get_sample_item_id_from_redis(redis_client, key_prefix):
+def get_sample_id_from_redis(redis_client, key_prefix):
     # Use SCAN to get keys with the item_id prefix
     keys = redis_client.scan_iter(match=key_prefix + "*", count=1)
     try:
@@ -10,19 +10,7 @@ def get_sample_item_id_from_redis(redis_client, key_prefix):
         sample_item_id = first_key[len(key_prefix) :]
         return sample_item_id
     except StopIteration:
-        return "sample_item_id_not_found"
-
-
-def get_sample_user_id_from_redis(redis_client, key_prefix):
-    # Use SCAN to get keys with the user_id prefix
-    keys = redis_client.scan_iter(match=key_prefix + "*", count=1)
-    try:
-        first_key = next(keys)
-        # Extract user_id from the key
-        sample_user_id = first_key[len(key_prefix) :]
-        return sample_user_id
-    except StopIteration:
-        return "sample_user_id_not_found"
+        return "sample_id_not_found"
 
 
 def custom_openapi(
@@ -35,10 +23,8 @@ def custom_openapi(
         return app.openapi_schema
 
     # Fetch sample item_id and user_id from Redis
-    sample_item_id = get_sample_item_id_from_redis(
-        redis_client, redis_output_i2i_key_prefix
-    )
-    sample_user_id = get_sample_user_id_from_redis(
+    sample_item_id = get_sample_id_from_redis(redis_client, redis_output_i2i_key_prefix)
+    sample_user_id = get_sample_id_from_redis(
         redis_client, redis_feature_recent_items_key_prefix
     )
 
