@@ -23,6 +23,9 @@ lab:
 api-up:
 	docker compose -f compose.api.yml up -d
 
+api-down:
+	docker compose -f compose.api.yml down
+
 # Create the requirements.txt file and update the torch to CPU version to reduce the image size
 requirements-txt:
 	poetry export --without dev --without-hashes --format=requirements.txt > requirements.txt
