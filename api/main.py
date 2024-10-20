@@ -38,11 +38,13 @@ app.openapi = lambda: custom_openapi(
 
 async def get_user_item_sequences(user_id: str) -> List[str]:
     fr = FeatureRequest(
-        features=["user_rating_stats:user_rating_list_10_recent_asin"],
         entities={"user_id": [user_id]},
     )
     features = await fetch_features(fr)
-    item_sequence_str = features["results"][1]["values"][0]
+    _idx = features["metadata"]["feature_names"].index(
+        "user_rating_list_10_recent_asin"
+    )
+    item_sequence_str = features["results"][_idx]["values"][0]
     item_sequences = item_sequence_str.split(",")
     logger.debug(
         f"Retrieved features: {features}, item_sequences: {item_sequences}",
@@ -139,7 +141,7 @@ async def get_recommendations_u2i_rerank(
     )
     all_items = list(all_items)
 
-    logger.debugo("Retrieved items: {}", all_items)
+    logger.debug("Retrieved items: {}", all_items)
 
     # Step 3: Get item_sequence features
     item_sequences = await get_user_item_sequences(user_id)
@@ -256,7 +258,10 @@ async def fetch_features(request: FeatureRequest):
     logger.info(f"Sending request to {feature_store_url}...")
 
     # Create the payload to send to the feature store
-    payload = {"features": request.features, "entities": request.entities}
+    payload = {
+        "feature_service": "user_rating_v1_fresh",  # Need to specify this to get the fresh features from push sources
+        "entities": request.entities,
+    }
 
     # Make the POST request to the feature store
     async with httpx.AsyncClient() as client:
