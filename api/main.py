@@ -12,14 +12,12 @@ from pydantic_models import FeatureRequest
 
 app = FastAPI()
 
-I2V_MODEL_SERVER_URL = os.getenv("I2V_MODEL_SERVER_URL", "http://localhost:3000")
 SEQRP_MODEL_SERVER_URL = os.getenv("SEQRP_MODEL_SERVER_URL", "http://localhost:3001")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", 6379)
 FEAST_ONLINE_SERVER_HOST = os.getenv("FEAST_ONLINE_SERVER_HOST", "localhost")
 FEAST_ONLINE_SERVER_PORT = os.getenv("FEAST_ONLINE_SERVER_PORT", 6566)
 
-i2v_url = f"{I2V_MODEL_SERVER_URL}/predict"
 seqrp_url = f"{SEQRP_MODEL_SERVER_URL}/predict"
 redis_client = redis.Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True

@@ -11,7 +11,7 @@ with bentoml.importing():
 load_dotenv()
 
 model_cfg = {
-    "item2vec": {"model_uri": f"models:/item2vec@champion"},
+    # "item2vec": {"model_uri": f"models:/item2vec@champion"},
     "sequence_rating_prediction": {
         "model_uri": f"models:/sequence_rating_prediction@champion"
     },
@@ -25,19 +25,6 @@ for name, cfg in model_cfg.items():
             "predict": {"batchable": True},
         },
     )
-
-
-@bentoml.service(name="i2v_service")
-class I2VService:
-    bento_model = bentoml.models.get("item2vec")
-
-    def __init__(self):
-        self.model = bentoml.mlflow.load_model(self.bento_model)
-
-    @bentoml.api
-    def predict(self, input_data):
-        rv = self.model.predict(input_data)
-        return rv
 
 
 @bentoml.service(name="seqrp_service")
