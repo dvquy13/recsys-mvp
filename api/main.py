@@ -36,22 +36,6 @@ app.openapi = lambda: custom_openapi(
 )
 
 
-async def get_user_item_sequences(user_id: str) -> List[str]:
-    fr = FeatureRequest(
-        entities={"user_id": [user_id]},
-    )
-    features = await fetch_features(fr)
-    _idx = features["metadata"]["feature_names"].index(
-        "user_rating_list_10_recent_asin"
-    )
-    item_sequence_str = features["results"][_idx]["values"][0]
-    item_sequences = item_sequence_str.split(",")
-    logger.debug(
-        f"Retrieved features: {features}, item_sequences: {item_sequences}",
-    )
-    return item_sequences
-
-
 def get_recommendations_from_redis(
     redis_key: str, count: Optional[int]
 ) -> Dict[str, Any]:
@@ -97,8 +81,8 @@ async def get_recommendations_u2i_last_item_i2i(
     logger.debug(f"Getting recent items for user_id: {user_id}")
 
     # Step 1: Get the recent items for the user
-    item_sequences = await get_user_item_sequences(user_id)
-    last_item_id = item_sequences[-1]
+    item_sequences = await feature_store_fetch_item_sequence(user_id)
+    last_item_id = item_sequences["item_sequence"][-1]
 
     logger.debug(f"Most recently interacted item: {last_item_id}")
 
@@ -144,7 +128,8 @@ async def get_recommendations_u2i_rerank(
     logger.debug("Retrieved items: {}", all_items)
 
     # Step 3: Get item_sequence features
-    item_sequences = await get_user_item_sequences(user_id)
+    item_sequences = await feature_store_fetch_item_sequence(user_id)
+    item_sequences = item_sequences["item_sequence"]
 
     # Step 4: Rerank
     reranked_recs = await score_seq_rating_prediction(
@@ -231,7 +216,7 @@ async def score_seq_rating_prediction(
 
         # Step 3: Handle response
         if response.status_code == 200:
-            logger.info(f"Response from external service: {response.json()}")
+            logger.debug(f"Response from external service: {response.json()}")
             result = response.json()
 
             return result
@@ -258,14 +243,15 @@ async def fetch_features(request: FeatureRequest):
     logger.info(f"Sending request to {feature_store_url}...")
 
     # Create the payload to send to the feature store
-    payload = {
-        "feature_service": "user_rating_v1_fresh",  # Need to specify this to get the fresh features from push sources
+    payload_fresh = {
         "entities": request.entities,
+        "features": request.features,
+        "full_feature_names": True,
     }
 
     # Make the POST request to the feature store
     async with httpx.AsyncClient() as client:
-        response = await client.post(feature_store_url, json=payload)
+        response = await client.post(feature_store_url, json=payload_fresh)
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -275,3 +261,35 @@ async def fetch_features(request: FeatureRequest):
             status_code=response.status_code,
             detail=f"Error fetching features: {response.text}",
         )
+
+
+@app.get("/feature_store/fetch/item_sequence")
+@debug_logging_decorator
+async def feature_store_fetch_item_sequence(user_id: str):
+    """
+    Quick work around to get feature sequences from both streaming sources and common online sources
+    """
+    fr = FeatureRequest(
+        entities={"user_id": [user_id]},
+        features=[
+            "user_rating_stats_fresh:user_rating_list_10_recent_asin",
+            "user_rating_stats:user_rating_list_10_recent_asin",
+        ],
+    )
+    response = await fetch_features(fr)
+
+    # Since the values returned from Fease Server will contain an array containing [user_id] + features
+    # So the feature idx is offset by 1
+    fresh_idx = 1
+    common_idx = 2
+
+    feature_results = response["results"]
+    get_feature_values = lambda idx: feature_results[idx]["values"][0]
+    fresh_item_sequence_str = get_feature_values(fresh_idx)
+    if fresh_item_sequence_str is not None:
+        item_sequence = fresh_item_sequence_str.split(",")
+    else:
+        common_item_sequence_str = get_feature_values(common_idx)
+        item_sequence = common_item_sequence_str.split(",")
+
+    return {"user_id": user_id, "item_sequence": item_sequence}

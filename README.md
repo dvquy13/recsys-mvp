@@ -193,6 +193,14 @@ make api-up
 echo "Visit http://localhost:8000/docs to interact with the APIs
 ```
 
+# Demo interaction and streaming feature update
+```shell
+cd $ROOT_DIR/ui
+poetry run gradio app.py
+```
+
+Then you can try to add a rating and then see if the recommendations are refreshed real-time based on the newly rated item.
+
 ## Clean up
 ```shell
 make clean

@@ -1,7 +1,6 @@
 import gradio as gr
 import pandas as pd
-from api_call import get_recommendations, get_user_features, push_new_item_sequence
-from loguru import logger
+from api_call import get_recommendations, get_user_item_sequence, push_new_item_sequence
 from query import get_items_metadata, get_users
 from theme import blueq
 
@@ -12,13 +11,8 @@ sample_users = users[:10]
 
 # Define the function that will use the selected dropdown value
 def _get_items_df(selected_user):
-    features = get_user_features(selected_user)
-    logger.info(f"Features: {features}")
-    _idx = features["metadata"]["feature_names"].index(
-        "user_rating_list_10_recent_asin"
-    )
-    item_sequence_str = features["results"][_idx]["values"][0]
-    item_sequences = item_sequence_str.split(",")
+    response = get_user_item_sequence(selected_user)
+    item_sequences = response["item_sequence"]
     items_metadata = get_items_metadata(item_sequences)
     items_metadata = (
         items_metadata.set_index("item_id")
@@ -45,18 +39,18 @@ def _get_recs(selected_user):
 
 
 def process_likes(*responses):
-    df = responses[-2]
-    user_id = responses[-1]
-    logger.info(f"{user_id=}")
-    logger.info(f"{df=}")
-    responses = responses[:-2]
+    # For more information on why we extract items based on these out of no where indices,
+    # please refer to the below mention of process_likes in submit_button.click...
+    recs_df = responses[-2]  # this is the current state of the recs_table
+    user_id = responses[-1]  # this is the current selected user_id
+    responses = responses[:-2]  # all the responses are behind those two last indices
     liked_items = []
     disliked_items = []
     item_sequences = []
 
     for i, r in enumerate(responses):
-        title = df.iloc[i]["title"]
-        item_id = df.iloc[i]["item_id"]
+        title = recs_df.iloc[i]["title"]
+        item_id = recs_df.iloc[i]["item_id"]
         item_display = f"{title} ({item_id})"
         if r == "👍":
             liked_items.append(item_display)
@@ -123,6 +117,9 @@ with gr.Blocks(
                 output = gr.Textbox(label="Ratings Recorded")
                 submit_button.click(
                     process_likes,
+                    # The intention here is to pass the relevant information to process_likes function
+                    # So that it can push the new ratings to Feature Store for real-time feature updates
+                    # TODO: Find a better way since this method of passing information is very ambiguous and has coupled logic.
                     inputs=responses + [recs_table, dropdown],
                     outputs=output,
                 )

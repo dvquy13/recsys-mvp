@@ -55,7 +55,7 @@ def get_recommendations(user_id, top_k_retrieval=100, count=10, debug=False):
         return None
 
 
-def get_user_features(user_id):
+def get_user_features(user_id: str, features: List[str]):
     # Define the URL
     url = "http://localhost:8000/feature_store/fetch"
 
@@ -64,6 +64,7 @@ def get_user_features(user_id):
     }
     payload = {
         "entities": {"user_id": [user_id]},
+        "features": features,
     }
 
     try:
@@ -79,15 +80,33 @@ def get_user_features(user_id):
         return None
 
 
+def get_user_item_sequence(user_id: str):
+    # Define the URL
+    url = "http://localhost:8000/feature_store/fetch/item_sequence"
+
+    headers = {
+        "accept": "application/json",
+    }
+    params = {"user_id": user_id}
+
+    try:
+        # Make the GET request
+        response = requests.get(url, headers=headers, params=params)
+        # Raise an exception for HTTP errors
+        response.raise_for_status()
+        # Return the JSON response
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        # Handle exceptions (e.g., network errors, HTTP errors)
+        print(f"An error occurred: {e}")
+        return None
+
+
 def push_new_item_sequence(
     user_id: str, new_items: List[str], sequence_length: int = 10
 ):
-    features = get_user_features(user_id)
-    _idx = features["metadata"]["feature_names"].index(
-        "user_rating_list_10_recent_asin"
-    )
-    item_sequence_str = features["results"][_idx]["values"][0]
-    item_sequences = item_sequence_str.split(",")
+    response = get_user_item_sequence(user_id)
+    item_sequences = response["item_sequence"]
     new_item_sequences = item_sequences + new_items
     new_item_sequences = new_item_sequences[-sequence_length:]
     new_item_sequences_str = ",".join(new_item_sequences)
