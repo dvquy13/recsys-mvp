@@ -19,10 +19,10 @@ pm.execute_notebook("010-prep-item2vec.ipynb", f"{output_dir}/010-prep-item2vec.
 pm.execute_notebook(
     "011-item2vec.ipynb",
     f"{output_dir}/011-item2vec.ipynb",
-    parameters={"max_epochs": 2},
+    parameters={"max_epochs": 100},
 )
 pm.execute_notebook(
     "021-sequence-modeling.ipynb",
     f"{output_dir}/021-sequence-modeling.ipynb",
-    parameters={"max_epochs": 2},
+    parameters={"max_epochs": 100},
 )

@@ -131,14 +131,23 @@ async def get_recommendations_u2i_rerank(
     item_sequences = await feature_store_fetch_item_sequence(user_id)
     item_sequences = item_sequences["item_sequence"]
 
-    # Step 4: Rerank
+    # Step 4: Remove rated items
+    set_item_sequences = set(item_sequences)
+    set_all_items = set(all_items)
+    already_rated_items = list(set_item_sequences.intersection(set_all_items))
+    logger.debug(
+        f"Removing {len(already_rated_items)} items already rated by this user: {already_rated_items}..."
+    )
+    all_items = list(set_all_items - set_item_sequences)
+
+    # Step 5: Rerank
     reranked_recs = await score_seq_rating_prediction(
         user_ids=[user_id] * len(all_items),
         item_sequences=[item_sequences] * len(all_items),
         item_ids=all_items,
     )
 
-    # Step 5: Extract scores from the result
+    # Step 6: Extract scores from the result
     scores = reranked_recs.get("scores", [])
     returned_items = reranked_recs.get("item_ids", [])
     if not scores or len(scores) != len(all_items):
@@ -155,7 +164,7 @@ async def get_recommendations_u2i_rerank(
     # Unzip the sorted items and scores
     sorted_item_ids, sorted_scores = zip(*item_scores)
 
-    # Step 4: Return the reranked recommendations
+    # Step 7: Return the reranked recommendations
     result = {
         "user_id": user_id,
         "features": {"item_sequence": item_sequences},
@@ -188,7 +197,7 @@ async def score_seq_rating_prediction(
     debug: bool = Query(False, description="Enable debug logging"),
 ):
     logger.debug(
-        f"Calling item2vec_predict with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
+        f"Calling seq_rating_predicting with user_ids: {user_ids}, item_sequences: {item_sequences} and item_ids: {item_ids}"
     )
 
     # Step 1: Prepare the payload for the external service

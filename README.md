@@ -22,8 +22,8 @@
 
 # Start services
 ## Common services
-- Run `make ml-platform-up` to start the supporting services
-- To check logs: `make ml-platform-logs`
+- Run `make ml-platform-up && make ml-platform-logs` to start the supporting services
+- Wait until you see "Booting worker with pid..." then you can Ctrl + C to exit the logs following process
 
 ## Airflow
 > [!WARNING] Local Docker Airflow requires some serious resources
@@ -34,7 +34,7 @@
 cd airflow
 mkdir -p ./dags ./logs ./plugins ./config
 cd $ROOT_DIR
-make airflow-up
+make airflow-up && make airflow-logs
 # To check airflow logs: `make airflow-logs`
 
 # Below 4 lines are there just in case Airflow does not start correctly due to permission issue
@@ -43,6 +43,9 @@ make airflow-up
 # export $(cat .env | grep -v "^#")
 # docker compose -f compose.airflow.yml up -d
 ```
+
+- Wait until you see "airflow-webserver: Booting worker with pid..." then you can Ctrl + C to exit the logs following process
+
 
 # Feature pipeline
 The goal of feature pipeline is to keep the feature in feature store updated via daily batch jobs.
@@ -183,14 +186,18 @@ echo "We should expect to see new feature values corresponding to new timestamp"
 ```
 
 # Training
-- Run `docker compose -f compose.pipeline.yml run --rm --build training_pipeline` to train the models
-- Run `docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline` to run batch recommendations
+```shell
+# Train the Item2Vec and Sequence Rating Prediction models
+docker compose -f compose.pipeline.yml run --rm --build training_pipeline
+# Run batch pre-recommendations for Item2Vec models and persist to Redis
+docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline
+```
 
 # API
 ```shell
 make requirements-txt
 make api-up
-echo "Visit http://localhost:8000/docs to interact with the APIs
+echo "Visit http://localhost:8000/docs to interact with the APIs"
 ```
 
 # Demo interaction and streaming feature update
@@ -199,7 +206,7 @@ cd $ROOT_DIR/ui
 poetry run gradio app.py
 ```
 
-Then you can try to add a rating and then see if the recommendations are refreshed real-time based on the newly rated item.
+Then you can try to rate some items and then see if the recommendations are updated accordingly.
 
 ## Clean up
 ```shell
