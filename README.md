@@ -5,11 +5,13 @@
 - Miniconda or alternatives that can create new Python environment with a specified Python version
 - Docker
 
-> [!TIP] VSCode auto load `.env`
+> [!TIP]
+> **VSCode auto load `.env`**
 > For convenience, you should enable your IDE to automatically load the `.env` as environment vars.
 > If using VSCode then this is done automatically as long as you have VSCode Python Extension installed.
 
-> [!IMPORTANT] Increase Docker memory to 16GB
+> [!IMPORTANT]
+> **Increase Docker memory to 16GB**
 > By default after installing Docker it might get only 8 GB of RAM from the host machine.
 > Due to this project's poor optimization at the moment, it's required to increase the Docker allocatable memory to at least 12 GB.
 
@@ -26,7 +28,8 @@
 - Wait until you see "Booting worker with pid..." then you can Ctrl + C to exit the logs following process
 
 ## Airflow
-> [!WARNING] Local Docker Airflow requires some serious resources
+> [!WARNING]
+> **Local Docker Airflow requires some serious resources**
 > You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
 
 ```shell
@@ -50,7 +53,8 @@ make airflow-up && make airflow-logs
 # Feature pipeline
 The goal of feature pipeline is to keep the feature in feature store updated via daily batch jobs.
 
-> [!IMPORTANT] This section assumes you have `make ml-platform-up` and `make airflow-up` running
+> [!IMPORTANT]
+> This section assumes you have `make ml-platform-up` and `make airflow-up` running
 
 ## Simulate transaction data
 ```shell
@@ -157,7 +161,8 @@ echo "Expect to see something like 2022-06-15. Later after we run the Airflow pi
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
 - If no error, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16.
 
-> [!NOTE] Undo the append
+> [!NOTE]
+> **Undo the append**
 > In case you want to undo the append, run: `cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb`
 
 ### Update features
