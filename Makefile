@@ -4,6 +4,9 @@
 include .env
 export
 
+mlflow-up:
+	docker compose -f compose.yml up -d mlflow_server
+
 ml-platform-up:
 	docker compose -f compose.yml up -d mlflow_server kv_store qdrant dwh
 

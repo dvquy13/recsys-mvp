@@ -100,24 +100,20 @@ class SequenceRatingPrediction(nn.Module):
         )  # Remove the sequence dimension -> [batch_size, embedding_dim]
 
         # Embed the target item
-        embedded_target = self.item_embedding(
-            target_item
-        )  # Shape: [batch_size, embedding_dim]
+        embedded_target = self.item_embedding(target_item)
 
         # Embed the user IDs
-        user_embeddings = self.user_embedding(
-            user_ids
-        )  # Shape: [batch_size, embedding_dim]
+        user_embeddings = self.user_embedding(user_ids)
 
         # Concatenate the GRU output with the target item and user embeddings
         combined_embedding = torch.cat(
             (gru_output, embedded_target, user_embeddings), dim=1
-        )  # Shape: [batch_size, embedding_dim*3]
+        )
 
         # Project combined embedding to rating prediction
-        output_ratings = self.fc_rating(combined_embedding)  # Shape: [batch_size, 1]
+        output_ratings = self.fc_rating(combined_embedding)
 
-        return output_ratings  # Shape: [batch_size]
+        return output_ratings
 
     def predict(self, user, item_sequence, target_item):
         """
