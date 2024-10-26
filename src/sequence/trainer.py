@@ -83,12 +83,13 @@ class LitSequenceRatingPrediction(L.LightningModule):
         input_item_ids = batch["item"]
         input_item_sequences = batch["item_sequence"]
 
-        labels = batch["rating"].float()
+        labels = batch["rating"]
         predictions = self.model.forward(
             input_user_ids, input_item_sequences, input_item_ids
         ).view(labels.shape)
 
-        loss_fn = nn.MSELoss()
+        # loss_fn = nn.MSELoss()
+        loss_fn = nn.BCELoss()
         loss = loss_fn(predictions, labels)
 
         self.log(
@@ -157,6 +158,8 @@ class LitSequenceRatingPrediction(L.LightningModule):
                 "classification_proba": classifications,
             }
         ).assign(label=lambda df: df["labels"].gt(0).astype(int))
+
+        self.eval_classification_df = eval_classification_df
 
         # Evidently
         target_col = "label"
@@ -231,9 +234,17 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         val_df = self.trainer.val_dataloaders.dataset.df
 
+        # Prepare input dataframe for prediction where user_indice is unique and item_sequence contains the last interaction in training data
+        # Retain the first row of each user and use that as input for recommendations
+        # We would compare that predictions with all the items this customer rates in val set
+        to_rec_df = val_df.sort_values(timestamp_col, ascending=True).drop_duplicates(
+            subset=[user_col]
+        )
         recommendations = self.model.recommend(
-            torch.tensor(val_df["user_indice"].values, device=self.device),
-            torch.tensor(val_df["item_sequence"].values.tolist(), device=self.device),
+            torch.tensor(to_rec_df["user_indice"].values, device=self.device),
+            torch.tensor(
+                to_rec_df["item_sequence"].values.tolist(), device=self.device
+            ),
             k=top_K,
             batch_size=4,
         )
@@ -258,6 +269,8 @@ class LitSequenceRatingPrediction(L.LightningModule):
             item_col=item_col,
             rating_col=rating_col,
         )
+
+        self.eval_ranking_df = eval_df
 
         column_mapping = ColumnMapping(
             recommendations_type="rank",

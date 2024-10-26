@@ -42,3 +42,21 @@ class UserItemRatingDFDataset(Dataset):
                 torch.as_tensor(item_feature) if item_feature is not None else []
             ),
         )
+
+
+class UserItemBinaryDFDataset(UserItemRatingDFDataset):
+    def __init__(
+        self,
+        df,
+        user_col: str,
+        item_col: str,
+        rating_col: str,
+        timestamp_col: str,
+        item_feature=None,
+    ):
+        self.df = df.assign(**{rating_col: df[rating_col].gt(0).astype(np.float32)})
+        self.user_col = user_col
+        self.item_col = item_col
+        self.rating_col = rating_col
+        self.timestamp_col = timestamp_col
+        self.item_feature = item_feature

@@ -67,6 +67,7 @@ class SequenceRatingPrediction(nn.Module):
             self.relu,
             self.dropout,
             nn.Linear(embedding_dim, 1),
+            nn.Sigmoid(),
         )
 
     def forward(self, user_ids, input_seq, target_item):
@@ -129,7 +130,7 @@ class SequenceRatingPrediction(nn.Module):
             torch.Tensor: Predicted rating after applying Sigmoid activation.
         """
         output_rating = self.forward(user, item_sequence, target_item)
-        return nn.Sigmoid()(output_rating)
+        return output_rating
 
     def recommend(
         self,

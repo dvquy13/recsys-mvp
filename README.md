@@ -49,18 +49,24 @@ make airflow-up && make airflow-logs
 
 - Wait until you see "airflow-webserver: Booting worker with pid..." then you can Ctrl + C to exit the logs following process
 
-
-# Feature pipeline
-The goal of feature pipeline is to keep the feature in feature store updated via daily batch jobs.
-
-> [!IMPORTANT]
-> This section assumes you have `make ml-platform-up` and `make airflow-up` running
+# Prepare data
+## Sample data
+```shell
+echo "To start, we need to sample our main dataset from the bigger upstream dataset"
+cd $ROOT_DIR/notebooks && poetry run python 00-prep-data.py
+```
 
 ## Simulate transaction data
 ```shell
 echo "Execute the notebook to populate the raw data into PostgreSQL"
 cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb
 ```
+
+# Feature pipeline
+The goal of feature pipeline is to keep the feature in feature store updated via daily batch jobs.
+
+> [!IMPORTANT]
+> This section assumes you have `make ml-platform-up` and `make airflow-up` running
 
 ## Build feature table with dbt
 ```shell
@@ -217,6 +223,9 @@ Then you can try to rate some items and then see if the recommendations are upda
 ```shell
 make clean
 ```
+
+# Improve
+<!-- To make sure we have the right data when developing at local, we need to clean the $ROOT_DIR/data and re-run the process on local (not inside Docker) to process the data -->
 
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.

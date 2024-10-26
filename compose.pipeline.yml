@@ -12,6 +12,7 @@ services:
       - FEAST_OFFLINE_SERVER_HOST=feature_offline_server
     volumes:
       - ./notebooks/output:/app/notebooks/output
+      - ./data:/app/data
     entrypoint: ["poetry", "run", "python", "00-training-pipeline.py"]
 
   batch_reco_pipeline:
@@ -27,6 +28,7 @@ services:
       - S3_ENDPOINT_URL=http://minio:9000
     volumes:
       - ./notebooks/output:/app/notebooks/output
+      - ./data:/app/data
     entrypoint: ["poetry", "run", "python", "00-batch-reco-pipeline.py"]
 
 networks:
