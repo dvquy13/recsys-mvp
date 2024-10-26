@@ -65,7 +65,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
             input_user_ids, input_item_sequences, input_item_ids
         ).view(labels.shape)
 
-        loss_fn = nn.MSELoss()
+        loss_fn = self._get_loss_fn()
         loss = loss_fn(predictions, labels)
 
         self.log(
@@ -88,8 +88,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
             input_user_ids, input_item_sequences, input_item_ids
         ).view(labels.shape)
 
-        # loss_fn = nn.MSELoss()
-        loss_fn = nn.BCELoss()
+        loss_fn = self._get_loss_fn()
         loss = loss_fn(predictions, labels)
 
         self.log(
@@ -314,3 +313,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
                     mlf_client.log_metric(
                         run_id, f"val_{metric}_at_k_as_step", metric_value, step=kth
                     )
+
+    def _get_loss_fn(self):
+        return nn.BCELoss()
+        # return nn.MSELoss()

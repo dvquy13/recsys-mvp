@@ -197,6 +197,14 @@ echo "We should expect to see new feature values corresponding to new timestamp"
 ```
 
 # Training
+You can choose to run either Non-docker version or Docker version below. The non-docker runs faster while the docker version is used to test packaged version of the run, which can be deployed on remote containerized computing infras.
+## Non-docker version
+```shell
+cd $ROOT_DIR/notebooks && poetry run python 00-training-pipeline.py
+cd $ROOT_DIR/notebooks && poetry run python 00-batch-reco-pipeline.py
+```
+
+## Docker version
 ```shell
 # Train the Item2Vec and Sequence Rating Prediction models
 docker compose -f compose.pipeline.yml run --rm --build training_pipeline
@@ -226,6 +234,7 @@ make clean
 
 # Improve
 <!-- To make sure we have the right data when developing at local, we need to clean the $ROOT_DIR/data and re-run the process on local (not inside Docker) to process the data -->
+Experiment with a ranker that can combines multiple signals.
 
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.
