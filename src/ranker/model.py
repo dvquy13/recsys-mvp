@@ -56,7 +56,10 @@ class Ranker(nn.Module):
 
         # GRU layer to process item sequences
         self.gru = nn.GRU(
-            input_size=embedding_dim, hidden_size=embedding_dim, batch_first=True
+            # item id embedding concat with item feature tower embedding output
+            input_size=embedding_dim * 2,
+            hidden_size=embedding_dim,
+            batch_first=True,
         )
 
         self.relu = nn.ReLU()
@@ -104,9 +107,22 @@ class Ranker(nn.Module):
             input_seq
         )  # Shape: [batch_size, seq_len, embedding_dim]
 
+        item_features_tower_output = self.item_feature_tower(item_features)
+        item_features_tower_output_seq = item_features_tower_output.unsqueeze(
+            1
+        )  # Shape: [batch_size, 1, embedding_dim]
+
+        # Compute out product between each item in the sequence and the item metadata features
+        dot_product = embedded_seq * item_features_tower_output_seq
+
+        # Concatenate embedded sequence and dot product along the feature dimension
+        gru_input = torch.cat(
+            (embedded_seq, dot_product), dim=-1
+        )  # Shape: [batch_size, seq_len, embedding_dim * 2]
+
         # GRU processing: output the hidden states and the final hidden state
         _, hidden_state = self.gru(
-            embedded_seq
+            gru_input
         )  # hidden_state: [1, batch_size, embedding_dim]
         gru_output = hidden_state.squeeze(
             0
@@ -117,8 +133,6 @@ class Ranker(nn.Module):
 
         # Embed the user IDs
         user_embeddings = self.user_embedding(user_ids)
-
-        item_features_tower_output = self.item_feature_tower(item_features)
 
         # Concatenate the GRU output with the target item and user embeddings
         combined_embedding = torch.cat(
