@@ -44,6 +44,7 @@ class LitRanker(L.LightningModule):
         all_items_features=None,
         args: BaseModel = None,
         neg_to_pos_ratio: int = 1,
+        checkpoint_callback=None,
     ):
         super().__init__()
         self.model = model
@@ -59,6 +60,17 @@ class LitRanker(L.LightningModule):
         self.all_items_features = all_items_features
         self.args = args
         self.neg_to_pos_ratio = neg_to_pos_ratio
+        self.checkpoint_callback = checkpoint_callback
+
+    def log_weight_norms(self, stage="train"):
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                self.log(
+                    f"{stage}_weight_norm_{name}",
+                    param.norm().item(),
+                    on_step=False,
+                    logger=True,
+                )
 
     def training_step(self, batch, batch_idx):
         input_user_ids = batch["user"]
@@ -66,7 +78,6 @@ class LitRanker(L.LightningModule):
         input_item_sequences = batch["item_sequence"]
         input_item_features = batch["item_feature"]
 
-        # If not squeeze then mismatched shapes between predictions and labels, even though code still run but can not converge
         labels = batch["rating"].float()
         predictions = self.model.forward(
             input_user_ids, input_item_sequences, input_item_features, input_item_ids
@@ -106,6 +117,12 @@ class LitRanker(L.LightningModule):
         )
         return loss
 
+    def on_train_epoch_end(self):
+        self.log_weight_norms(stage="train")
+
+    def on_validation_epoch_end(self):
+        self.log_weight_norms(stage="val")
+
     def configure_optimizers(self):
         # Create the optimizer
         optimizer = torch.optim.Adam(
@@ -131,6 +148,13 @@ class LitRanker(L.LightningModule):
             self.log("learning_rate", sch.get_last_lr()[0], sync_dist=True)
 
     def on_fit_end(self):
+        if self.checkpoint_callback:
+            logger.info(
+                f"Loading best model from {self.checkpoint_callback.best_model_path}..."
+            )
+            self.model = LitRanker.load_from_checkpoint(
+                self.checkpoint_callback.best_model_path, model=self.model
+            ).model.to(self.device)
         logger.info(f"Logging classification metrics...")
         self._log_classification_metrics()
         if self.evaluate_ranking:

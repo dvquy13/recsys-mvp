@@ -35,6 +35,8 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
         with open(item_metadata_pipeline_fp, "rb") as f:
             self.item_metadata_pipeline = dill.load(f)
 
+        self.use_sbert_features = context.model_config["use_sbert_features"]
+
     def predict(self, context, model_input, params=None):
         """
         Args:
@@ -63,10 +65,11 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
         item_features = self.item_metadata_pipeline.transform(
             pd.DataFrame(model_input)
         ).astype(np.float32)
-        sbert_vectors = self.ann_index.get_vector_by_ids(item_indices).astype(
-            np.float32
-        )
-        item_features = np.hstack([item_features, sbert_vectors])
+        if self.use_sbert_features:
+            sbert_vectors = self.ann_index.get_vector_by_ids(item_indices).astype(
+                np.float32
+            )
+            item_features = np.hstack([item_features, sbert_vectors])
 
         infer_output = self.infer(
             user_indices, item_sequences, item_features, item_indices
