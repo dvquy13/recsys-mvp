@@ -43,6 +43,7 @@ class LitRanker(L.LightningModule):
         idm: IDMapper = None,
         item_metadata_pipeline=None,
         args: BaseModel = None,
+        neg_to_pos_ratio: int = 1,
     ):
         super().__init__()
         self.model = model
@@ -56,6 +57,7 @@ class LitRanker(L.LightningModule):
         self.idm = idm
         self.item_metadata_pipeline = item_metadata_pipeline
         self.args = args
+        self.neg_to_pos_ratio = neg_to_pos_ratio
 
     def training_step(self, batch, batch_idx):
         input_user_ids = batch["user"]
@@ -68,8 +70,9 @@ class LitRanker(L.LightningModule):
         predictions = self.model.forward(
             input_user_ids, input_item_sequences, input_item_features, input_item_ids
         ).view(labels.shape)
+        weights = torch.where(labels == 1, self.neg_to_pos_ratio, 1.0)
 
-        loss_fn = self._get_loss_fn()
+        loss_fn = self._get_loss_fn(weights)
         loss = loss_fn(predictions, labels)
 
         self.log(
@@ -92,8 +95,9 @@ class LitRanker(L.LightningModule):
         predictions = self.model.forward(
             input_user_ids, input_item_sequences, input_item_features, input_item_ids
         ).view(labels.shape)
+        weights = torch.where(labels == 1, self.neg_to_pos_ratio, 1.0)
 
-        loss_fn = self._get_loss_fn()
+        loss_fn = self._get_loss_fn(weights)
         loss = loss_fn(predictions, labels)
 
         self.log(
@@ -332,5 +336,5 @@ class LitRanker(L.LightningModule):
                         run_id, f"val_{metric}_at_k_as_step", metric_value, step=kth
                     )
 
-    def _get_loss_fn(self):
-        return nn.BCELoss()
+    def _get_loss_fn(self, weights):
+        return nn.BCELoss(weights)

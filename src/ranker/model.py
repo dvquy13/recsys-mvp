@@ -62,9 +62,18 @@ class Ranker(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=dropout)
 
-        # Fully connected layer to map concatenated embeddings to rating prediction
+        self.item_feature_tower = nn.Sequential(
+            nn.Linear(item_feature_size, embedding_dim),
+            nn.BatchNorm1d(embedding_dim),
+            self.relu,
+            self.dropout,
+        )
+
+        # 4 sources of features concatenated
+        # target item, user, item features, item sequence
+        input_dim = embedding_dim * 4
         self.fc_rating = nn.Sequential(
-            nn.Linear(embedding_dim * 3 + item_feature_size, embedding_dim),
+            nn.Linear(input_dim, embedding_dim),
             nn.BatchNorm1d(embedding_dim),
             self.relu,
             self.dropout,
@@ -109,9 +118,17 @@ class Ranker(nn.Module):
         # Embed the user IDs
         user_embeddings = self.user_embedding(user_ids)
 
+        item_features_tower_output = self.item_feature_tower(item_features)
+
         # Concatenate the GRU output with the target item and user embeddings
         combined_embedding = torch.cat(
-            (gru_output, embedded_target, user_embeddings, item_features), dim=1
+            (
+                gru_output,
+                embedded_target,
+                user_embeddings,
+                item_features_tower_output,
+            ),
+            dim=1,
         )
 
         # Project combined embedding to rating prediction

@@ -64,7 +64,9 @@ def price_parse_dtype(series, pattern):
     return series.str.extract(pattern).astype(float)
 
 
-def price_pipeline_steps(price_pattern):
+def price_pipeline_steps(price_pattern=None):
+    if price_pattern is None:
+        price_pattern = r"\b((?:\d+\.\d*)|(?:\d+))\b"
     steps = [
         (
             "extract_price",

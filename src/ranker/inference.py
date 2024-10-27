@@ -48,7 +48,9 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
             )
             item_sequences.append(item_sequence)
         item_features = self.item_metadata_pipeline.transform(
-            pd.DataFrame(model_input)[["main_category", "categories"]]
+            pd.DataFrame(model_input)[
+                ["main_category", "categories"]
+            ]  # TODO: Factor out this list of features as input params
         ).astype(np.float32)
         infer_output = self.infer(
             user_indices, item_sequences, item_features, item_indices
