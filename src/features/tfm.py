@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import FunctionTransformer, MinMaxScaler
+from sklearn.preprocessing import FunctionTransformer, MinMaxScaler, StandardScaler
 
 
 def reshape_2d_to_1d(X):
@@ -76,5 +76,13 @@ def price_pipeline_steps(price_pattern=None):
         ),
         ("impute", SimpleImputer(strategy="constant", fill_value=0)),
         ("min_max_scale", MinMaxScaler()),
+    ]
+    return steps
+
+
+def rating_agg_pipeline_steps():
+    steps = [
+        ("impute", SimpleImputer(strategy="constant", fill_value=0)),
+        ("normalize", StandardScaler()),
     ]
     return steps

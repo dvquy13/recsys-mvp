@@ -2,7 +2,6 @@ import os
 import warnings
 
 import lightning as L
-import numpy as np
 import pandas as pd
 import torch
 from evidently.metric_preset import ClassificationPreset
@@ -41,7 +40,8 @@ class LitRanker(L.LightningModule):
         log_dir: str = ".",
         evaluate_ranking: bool = False,
         idm: IDMapper = None,
-        item_metadata_pipeline=None,
+        all_items_indices=None,
+        all_items_features=None,
         args: BaseModel = None,
         neg_to_pos_ratio: int = 1,
     ):
@@ -55,7 +55,8 @@ class LitRanker(L.LightningModule):
         # TODO: Refactor
         self.evaluate_ranking = evaluate_ranking
         self.idm = idm
-        self.item_metadata_pipeline = item_metadata_pipeline
+        self.all_items_indices = all_items_indices
+        self.all_items_features = all_items_features
         self.args = args
         self.neg_to_pos_ratio = neg_to_pos_ratio
 
@@ -245,13 +246,6 @@ class LitRanker(L.LightningModule):
         idm = self.idm
 
         val_df = self.trainer.val_dataloaders.dataset.df
-        train_df = self.trainer.train_dataloader.dataset.df
-
-        all_items_df = train_df.drop_duplicates(subset=["item_indice"])
-        all_items_indices = all_items_df["item_indice"].values
-        all_items_features = self.item_metadata_pipeline.transform(all_items_df).astype(
-            np.float32
-        )
 
         # Prepare input dataframe for prediction where user_indice is unique and item_sequence contains the last interaction in training data
         # Retain the first row of each user and use that as input for recommendations
@@ -264,8 +258,8 @@ class LitRanker(L.LightningModule):
             torch.tensor(
                 to_rec_df["item_sequence"].values.tolist(), device=self.device
             ),
-            torch.tensor(all_items_features, device=self.device),
-            torch.tensor(all_items_indices, device=self.device),
+            torch.tensor(self.all_items_features, device=self.device),
+            torch.tensor(self.all_items_indices, device=self.device),
             k=top_K,
             batch_size=4,
         )

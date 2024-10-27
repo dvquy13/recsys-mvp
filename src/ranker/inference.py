@@ -1,9 +1,12 @@
+import os
+
 import dill
 import numpy as np
 import pandas as pd
 import torch
 
 import mlflow
+from src.ann import AnnIndex
 from src.id_mapper import IDMapper
 
 
@@ -18,6 +21,16 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
         """
         json_path = context.artifacts["idm"]
         self.idm = IDMapper().load(json_path)
+
+        # Qdrant
+        if not (qdrant_host := os.getenv("QDRANT_HOST")):
+            raise Exception(f"Environment variable QDRANT_HOST is not set.")
+        qdrant_port = os.getenv("QDRANT_PORT")
+        qdrant_url = f"{qdrant_host}:{qdrant_port}"
+        self.ann_index = AnnIndex(
+            qdrant_url=qdrant_url, qdrant_collection_name="item_desc_sbert"
+        )
+
         item_metadata_pipeline_fp = context.artifacts["item_metadata_pipeline"]
         with open(item_metadata_pipeline_fp, "rb") as f:
             self.item_metadata_pipeline = dill.load(f)
@@ -48,10 +61,13 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
             )
             item_sequences.append(item_sequence)
         item_features = self.item_metadata_pipeline.transform(
-            pd.DataFrame(model_input)[
-                ["main_category", "categories"]
-            ]  # TODO: Factor out this list of features as input params
+            pd.DataFrame(model_input)
         ).astype(np.float32)
+        sbert_vectors = self.ann_index.get_vector_by_ids(item_indices).astype(
+            np.float32
+        )
+        item_features = np.hstack([item_features, sbert_vectors])
+
         infer_output = self.infer(
             user_indices, item_sequences, item_features, item_indices
         ).tolist()
