@@ -76,11 +76,16 @@ class LitRanker(L.LightningModule):
         input_user_ids = batch["user"]
         input_item_ids = batch["item"]
         input_item_sequences = batch["item_sequence"]
+        input_item_sequence_ts_buckets = batch["item_sequence_ts_bucket"]
         input_item_features = batch["item_feature"]
 
         labels = batch["rating"].float()
         predictions = self.model.forward(
-            input_user_ids, input_item_sequences, input_item_features, input_item_ids
+            input_user_ids,
+            input_item_sequences,
+            input_item_sequence_ts_buckets,
+            input_item_features,
+            input_item_ids,
         ).view(labels.shape)
         weights = torch.where(labels == 1, self.neg_to_pos_ratio, 1.0)
 
@@ -101,11 +106,16 @@ class LitRanker(L.LightningModule):
         input_user_ids = batch["user"]
         input_item_ids = batch["item"]
         input_item_sequences = batch["item_sequence"]
+        input_item_sequence_ts_buckets = batch["item_sequence_ts_bucket"]
         input_item_features = batch["item_feature"]
 
         labels = batch["rating"]
         predictions = self.model.forward(
-            input_user_ids, input_item_sequences, input_item_features, input_item_ids
+            input_user_ids,
+            input_item_sequences,
+            input_item_sequence_ts_buckets,
+            input_item_features,
+            input_item_ids,
         ).view(labels.shape)
         weights = torch.where(labels == 1, self.neg_to_pos_ratio, 1.0)
 
@@ -177,11 +187,13 @@ class LitRanker(L.LightningModule):
             _input_user_ids = batch_input["user"]
             _input_item_ids = batch_input["item"]
             _input_item_sequences = batch_input["item_sequence"]
+            _input_item_sequence_ts_buckets = batch_input["item_sequence_ts_bucket"]
             _input_item_features = batch_input["item_feature"]
             _labels = batch_input["rating"]
             _classifications = self.model.predict(
                 _input_user_ids,
                 _input_item_sequences,
+                _input_item_sequence_ts_buckets,
                 _input_item_features,
                 _input_item_ids,
             ).view(_labels.shape)
@@ -281,6 +293,9 @@ class LitRanker(L.LightningModule):
             torch.tensor(to_rec_df["user_indice"].values, device=self.device),
             torch.tensor(
                 to_rec_df["item_sequence"].values.tolist(), device=self.device
+            ),
+            torch.tensor(
+                to_rec_df["item_sequence_ts_bucket"].values.tolist(), device=self.device
             ),
             torch.tensor(self.all_items_features, device=self.device),
             torch.tensor(self.all_items_indices, device=self.device),

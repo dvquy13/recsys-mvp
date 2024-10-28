@@ -47,10 +47,14 @@ down:
 	docker compose -f compose.pipeline.yml down
 	docker compose -f compose.api.yml down
 
-remove-data:
+remove-feature-store-data:
 	rm -rf data/redis
 	rm -rf data/postgres
+
+remove-data: remove-feature-store-data
 	rm -rf data/mlflow
 	rm -rf data/qdrant_storage
 
 clean: down remove-data
+
+clean-feature-store: down remove-feature-store-data

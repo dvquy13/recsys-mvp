@@ -23,6 +23,10 @@ class AnnIndex:
                 collection_name=self.qdrant_collection_name, ids=_ids, with_vectors=True
             )
             records.extend(_records)
+        # Handle case where duplicated ids are sent to Qdrant then it returns back only the set of vectors
+        if len(records) != len(ids):
+            mapper = {record.id: record.vector for record in records}
+            return np.array([mapper[id] for id in ids])
         return np.array([record.vector for record in records])
 
     def get_neighbors_by_ids(self, ids: List[int], limit: int = 5):

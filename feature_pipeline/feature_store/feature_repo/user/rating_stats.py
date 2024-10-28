@@ -17,6 +17,13 @@ user_rating_stats_source = PostgreSQLSource(
     timestamp_field="timestamp",
 )
 
+schema = [
+    Field(name="user_rating_cnt_90d", dtype=Int64),
+    Field(name="user_rating_avg_prev_rating_90d", dtype=Float32),
+    Field(name="user_rating_list_10_recent_asin", dtype=String),
+    Field(name="user_rating_list_10_recent_asin_timestamp", dtype=String),
+]
+
 # Define the new Feature View for user rating stats
 user_rating_stats_fv = FeatureView(
     name="user_rating_stats",
@@ -24,11 +31,7 @@ user_rating_stats_fv = FeatureView(
     ttl=timedelta(
         days=10000
     ),  # Define this to be very long for demo purpose otherwise null data
-    schema=[
-        Field(name="user_rating_cnt_90d", dtype=Int64),
-        Field(name="user_rating_avg_prev_rating_90d", dtype=Float32),
-        Field(name="user_rating_list_10_recent_asin", dtype=String),
-    ],
+    schema=schema,
     online=True,
     source=user_rating_stats_source,
     tags={"domain": "user_rating"},
@@ -55,11 +58,7 @@ user_rating_stats_fresh_fv = FeatureView(
     name="user_rating_stats_fresh",
     entities=[user],
     ttl=timedelta(days=1),
-    schema=[
-        Field(name="user_rating_cnt_90d", dtype=Int64),
-        Field(name="user_rating_avg_prev_rating_90d", dtype=Float32),
-        Field(name="user_rating_list_10_recent_asin", dtype=String),
-    ],
+    schema=schema,
     online=True,
     source=user_rating_stats_push_source,  # Changed from above
     tags={"domain": "user_rating"},

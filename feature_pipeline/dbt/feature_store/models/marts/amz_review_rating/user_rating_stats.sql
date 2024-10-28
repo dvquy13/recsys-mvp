@@ -33,7 +33,16 @@ select distinct
 	        EXCLUDE TIES
 	    ), 
 	    ','
-    ) AS user_rating_list_10_recent_asin
+    ) AS user_rating_list_10_recent_asin,
+	array_to_string(
+		ARRAY_AGG(extract(epoch from timestamp)::int) OVER (
+	        PARTITION BY user_id
+	        ORDER BY timestamp
+	        ROWS BETWEEN 10 PRECEDING AND 1 preceding
+	        EXCLUDE TIES
+	    ), 
+	    ','
+    ) AS user_rating_list_10_recent_asin_timestamp
 FROM
     raw
 ORDER BY

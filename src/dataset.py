@@ -30,6 +30,9 @@ class UserItemRatingDFDataset(Dataset):
         item_sequence = []
         if "item_sequence" in self.df:
             item_sequence = self.df["item_sequence"].iloc[idx]
+        item_sequence_ts_bucket = []
+        if "item_sequence_ts_bucket" in self.df:
+            item_sequence_ts_bucket = self.df["item_sequence_ts_bucket"].iloc[idx]
         item_feature = []
         if self.item_feature is not None:
             item_feature = self.item_feature[idx]
@@ -38,6 +41,9 @@ class UserItemRatingDFDataset(Dataset):
             item=torch.as_tensor(item),
             rating=torch.as_tensor(rating),
             item_sequence=torch.tensor(item_sequence, dtype=torch.long),
+            item_sequence_ts_bucket=torch.tensor(
+                item_sequence_ts_bucket, dtype=torch.long
+            ),
             item_feature=(
                 torch.as_tensor(item_feature) if item_feature is not None else []
             ),

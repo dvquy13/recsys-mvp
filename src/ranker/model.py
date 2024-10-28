@@ -14,6 +14,8 @@ class Ranker(nn.Module):
         num_users (int): The number of unique users.
         num_items (int): The number of unique items.
         embedding_dim (int): The size of the embedding dimension for both user and item embeddings.
+        item_sequence_ts_bucket_size (int): The size of the item sequence timestamp bucket.
+        bucket_embedding_dim (int): The size of the embedding dimension for the item sequence timestamp bucket.
         item_feature_size (int): The size of the item features.
         item_embedding (torch.nn.Embedding): pretrained item embeddings. Defaults to None.
         dropout (float, optional): The dropout probability applied to the fully connected layers. Defaults to 0.2.
@@ -30,9 +32,11 @@ class Ranker(nn.Module):
 
     def __init__(
         self,
-        num_users,
-        num_items,
-        embedding_dim,
+        num_users: int,
+        num_items: int,
+        embedding_dim: int,
+        item_sequence_ts_bucket_size: int,
+        bucket_embedding_dim: int,
         item_feature_size: int,
         item_embedding=None,
         dropout=0.2,
@@ -54,9 +58,16 @@ class Ranker(nn.Module):
         # User embedding
         self.user_embedding = nn.Embedding(num_users, embedding_dim)
 
+        # Item sequence timestamp bucket embedding
+        self.item_sequence_ts_bucket_embedding = nn.Embedding(
+            item_sequence_ts_bucket_size + 1,
+            bucket_embedding_dim,
+            padding_idx=item_sequence_ts_bucket_size,
+        )
+
         # GRU layer to process item sequences
         self.gru = nn.GRU(
-            input_size=embedding_dim,
+            input_size=embedding_dim + bucket_embedding_dim,
             hidden_size=embedding_dim,
             batch_first=True,
         )
@@ -83,13 +94,16 @@ class Ranker(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, user_ids, input_seq, item_features, target_item):
+    def forward(
+        self, user_ids, input_seq, input_seq_ts_bucket, item_features, target_item
+    ):
         """
         Forward pass to predict the rating.
 
         Args:
             user_ids (torch.Tensor): Batch of user IDs.
             input_seq (torch.Tensor): Batch of item sequences.
+            input_seq_ts_bucket (torch.Tensor): Batch of item sequence timestamp buckets.
             item_features (torch.Tensor): Vectorized target item features.
             target_item (torch.Tensor): Batch of target items to predict the rating for.
 
@@ -100,11 +114,25 @@ class Ranker(nn.Module):
         padding_idx_tensor = torch.tensor(self.item_embedding.padding_idx)
         input_seq = torch.where(input_seq == -1, padding_idx_tensor, input_seq)
         target_item = torch.where(target_item == -1, padding_idx_tensor, target_item)
-
         # Embed input sequence
-        embedded_seq = self.item_embedding(
+        embedded_id_seq = self.item_embedding(
             input_seq
         )  # Shape: [batch_size, seq_len, embedding_dim]
+
+        # Replace -1 in input_seq_ts_bucket with padding_idx
+        bucket_padding_idx_tensor = torch.tensor(
+            self.item_sequence_ts_bucket_embedding.padding_idx
+        )
+        input_seq_ts_bucket = torch.where(
+            input_seq_ts_bucket == -1, bucket_padding_idx_tensor, input_seq_ts_bucket
+        )
+        # Embed input sequence timestamp buckets
+        embedded_ts_bucket_seq = self.item_sequence_ts_bucket_embedding(
+            input_seq_ts_bucket
+        )  # Shape: [batch_size, seq_len, embedding_dim]
+
+        # Concatenate embedded_seq and embedded_ts_bucket_seq along the last dimension
+        embedded_seq = torch.cat((embedded_id_seq, embedded_ts_bucket_seq), dim=-1)
 
         item_features_tower_output = self.item_feature_tower(item_features)
 
@@ -139,7 +167,9 @@ class Ranker(nn.Module):
 
         return output_ratings
 
-    def predict(self, user, item_sequence, item_features, target_item):
+    def predict(
+        self, user, item_sequence, input_seq_ts_bucket, item_features, target_item
+    ):
         """
         Predict the rating for a specific user and item sequence using the forward method
         and applying a Sigmoid function to the output.
@@ -147,19 +177,23 @@ class Ranker(nn.Module):
         Args:
             user (torch.Tensor): User ID.
             item_sequence (torch.Tensor): Sequence of previously interacted items.
+            input_seq_ts_bucket (torch.Tensor): Sequence of item sequence timestamp buckets.
             item_features (torch.Tensor): Vectorized target item features.
             target_item (torch.Tensor): The target item to predict the rating for.
 
         Returns:
             torch.Tensor: Predicted rating after applying Sigmoid activation.
         """
-        output_rating = self.forward(user, item_sequence, item_features, target_item)
+        output_rating = self.forward(
+            user, item_sequence, input_seq_ts_bucket, item_features, target_item
+        )
         return output_rating
 
     def recommend(
         self,
         users: torch.Tensor,
         item_sequences: torch.Tensor,
+        item_ts_bucket_sequences: torch.Tensor,
         item_features: torch.Tensor,
         item_indices: torch.Tensor,
         k: int,
@@ -171,6 +205,7 @@ class Ranker(nn.Module):
         Args:
             users (torch.Tensor): Tensor containing user IDs.
             item_sequences (torch.Tensor): Tensor containing sequences of previously interacted items.
+            item_ts_bucket_sequences (torch.Tensor): Tensor containing sequences of item sequence timestamp buckets.
             item_features (torch.Tensor): Vectorized target item features, must be aligned with item_indices below.
             item_indices (torch.Tensor): List of item indices to predict score for, usually all items.
             k (int): Number of recommendations to generate for each user.
@@ -196,6 +231,9 @@ class Ranker(nn.Module):
             ):
                 user_batch = users[i : i + batch_size]
                 item_sequence_batch = item_sequences[i : i + batch_size]
+                item_ts_bucket_sequence_batch = item_ts_bucket_sequences[
+                    i : i + batch_size
+                ]
 
                 # Expand user_batch to match all items
                 user_batch_expanded = (
@@ -210,6 +248,14 @@ class Ranker(nn.Module):
                 item_sequences_batch = item_sequences_batch.view(
                     -1, item_sequence_batch.size(-1)
                 )
+                item_ts_bucket_sequences_batch = (
+                    item_ts_bucket_sequence_batch.unsqueeze(1).repeat(
+                        1, len(all_items), 1
+                    )
+                )
+                item_ts_bucket_sequences_batch = item_ts_bucket_sequences_batch.view(
+                    -1, item_ts_bucket_sequence_batch.size(-1)
+                )
                 items_feature_batch = item_features.unsqueeze(0).repeat(
                     len(user_batch), 1, 1
                 )
@@ -221,6 +267,7 @@ class Ranker(nn.Module):
                 batch_scores = self.predict(
                     user_batch_expanded,
                     item_sequences_batch,
+                    item_ts_bucket_sequences_batch,
                     items_feature_batch,
                     items_batch,
                 ).view(len(user_batch), -1)
