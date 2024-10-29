@@ -13,11 +13,11 @@
 > [!IMPORTANT]
 > **Increase Docker memory to 16GB**
 > By default after installing Docker it might get only 8 GB of RAM from the host machine.
-> Due to this project's poor optimization at the moment, it's required to increase the Docker allocatable memory to at least 12 GB.
+> Due to this project's poor optimization at the moment, it's required to increase the Docker allocatable memory to at least 14 GB.
 
 # Set up
 - Create a new `.env` file based on `.env.example` and populate the variables there
-- Set up env var $ROOT_DIR: `sed -i '' "s|^ROOT_DIR=.*|ROOT_DIR=$(pwd)|" .env`
+- Set up env var $ROOT_DIR: `export ROOT_DIR=$(pwd) && sed -i '' "s|^ROOT_DIR=.*|ROOT_DIR=$ROOT_DIR|" .env`
 - Create a new Python 3.11.9 environment: `conda create --prefix .venv python=3.11.9`
 - Make sure Poetry use the new Python 3.11.9 environment: `poetry env use .venv/bin/python`
 - Install Python dependencies with Poetry: `poetry install`
@@ -59,6 +59,7 @@ cd $ROOT_DIR/notebooks && poetry run python 00-prep-data.py
 ## Simulate transaction data
 ```shell
 echo "Execute the notebook to populate the raw data into PostgreSQL"
+mkdir -p $ROOT_DIR/feature_pipeline/notebooks/papermill-output
 cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb
 ```
 
@@ -119,7 +120,7 @@ poetry run feast materialize-incremental $MATERIALIZE_CHECKPOINT_TIME
 ```
 
 ### Feature Server
-Set up Feature Server to serve online features
+Set up Feature Server to serve both online and offline features
 
 ```shell
 cd $ROOT_DIR
@@ -165,7 +166,7 @@ echo "Expect to see something like 2022-06-15. Later after we run the Airflow pi
 
 - Now go to Airflow UI http://localhost:8080, username=airflow password=airflow
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
-- If no error, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16.
+- If no error, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
 
 > [!NOTE]
 > **Undo the append**
@@ -238,3 +239,4 @@ Experiment with a ranker that can combines multiple signals.
 
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.
+- If your Redis (kv_store) can not start due to "# Can't handle RDB format version 12", just remove the data and try again: `make clean`
