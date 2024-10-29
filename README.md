@@ -4,6 +4,9 @@
 - Poetry 1.8.3
 - Miniconda or alternatives that can create new Python environment with a specified Python version
 - Docker
+- PostgreSQL
+  - For Mac, run: `brew install postgresql`
+  - For Ubuntu, run: `sudo apt-get update && sudo apt-get install -y libpq-dev`
 
 > [!TIP]
 > **VSCode auto load `.env`**
@@ -12,12 +15,13 @@
 
 > [!IMPORTANT]
 > **Increase Docker memory to 16GB**
-> By default after installing Docker it might get only 8 GB of RAM from the host machine.
+> On MacOS, By default after installing Docker Desktop it might get only 8 GB of RAM from the host machine.
 > Due to this project's poor optimization at the moment, it's required to increase the Docker allocatable memory to at least 14 GB.
 
 # Set up
 - Create a new `.env` file based on `.env.example` and populate the variables there
-- Set up env var $ROOT_DIR: `export ROOT_DIR=$(pwd) && sed -i '' "s|^ROOT_DIR=.*|ROOT_DIR=$ROOT_DIR|" .env`
+- Set up env var $ROOT_DIR: `export ROOT_DIR=$(pwd) && sed "s|^ROOT_DIR=.*|ROOT_DIR=$ROOT_DIR|" .env > .tmp && mv .tmp .env`
+- Run `export $(grep -v '^#' .env | xargs)` to load the variables
 - Create a new Python 3.11.9 environment: `conda create --prefix .venv python=3.11.9`
 - Make sure Poetry use the new Python 3.11.9 environment: `poetry env use .venv/bin/python`
 - Install Python dependencies with Poetry: `poetry install`
@@ -33,16 +37,13 @@
 > You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
 
 ```shell
-# Create a new shell starts at root dir recsys-mvp/feature_pipeline
-cd airflow
-mkdir -p ./dags ./logs ./plugins ./config
 cd $ROOT_DIR
 make airflow-up && make airflow-logs
 # To check airflow logs: `make airflow-logs`
 
 # Below 4 lines are there just in case Airflow does not start correctly due to permission issue
 # export AIRFLOW_UID=$(id -u)
-# sed -i '' "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$AIRFLOW_UID/" .env
+# sed "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$AIRFLOW_UID/" .env > .tmp && mv .tmp .env
 # export $(cat .env | grep -v "^#")
 # docker compose -f compose.airflow.yml up -d
 ```
@@ -164,8 +165,9 @@ poetry run python scripts/check_oltp_max_timestamp.py
 echo "Expect to see something like 2022-06-15. Later after we run the Airflow pipeline to trigger 002-append-hold-to-oltp notebook we should see new max timestamp denoting new data added"
 ```
 
-- Now go to Airflow UI http://localhost:8080, username=airflow password=airflow
+- Now go to Airflow UI http://localhost:8081, username=airflow password=airflow
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
+  - In case the error log says: "Failed to establish connection to Docker host unix://var/run/docker.sock: Error while fetching server API version: ('Connection aborted.', PermissionError(13, 'Permission denied'))", it's likely you need to grant 'rw' permission to all users for the docker.sock file. Do so by running `sudo chmod 666 /var/run/docker.sock`. Read [this SO](https://stackoverflow.com/questions/62499661/airflow-dockeroperator-fails-with-permission-denied-error) for more details.
 - If no error, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
 
 > [!NOTE]
@@ -215,6 +217,7 @@ docker compose -f compose.pipeline.yml run --rm --build batch_reco_pipeline
 
 # API
 ```shell
+cd $ROOT_DIR
 make requirements-txt
 make api-up
 echo "Visit http://localhost:8000/docs to interact with the APIs"

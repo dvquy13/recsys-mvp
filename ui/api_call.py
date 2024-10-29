@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime
 from typing import List
 
@@ -106,10 +107,16 @@ def push_new_item_sequence(
     user_id: str, new_items: List[str], sequence_length: int = 10
 ):
     response = get_user_item_sequence(user_id)
+
     item_sequences = response["item_sequence"]
     new_item_sequences = item_sequences + new_items
     new_item_sequences = new_item_sequences[-sequence_length:]
     new_item_sequences_str = ",".join(new_item_sequences)
+
+    item_sequence_tss = response["item_sequence_ts"]
+    new_item_sequence_tss = item_sequence_tss + [int(time.time())]
+    new_item_sequence_tss = new_item_sequence_tss[-sequence_length:]
+    new_item_sequence_tss_str = ",".join([str(ts) for ts in new_item_sequence_tss])
 
     event_dict = {
         "user_id": [user_id],
@@ -120,13 +127,14 @@ def push_new_item_sequence(
         "user_rating_cnt_90d": [1],  # Mock
         "user_rating_avg_prev_rating_90d": [4.5],  # Mock
         "user_rating_list_10_recent_asin": [new_item_sequences_str],
+        "user_rating_list_10_recent_asin_timestamp": [new_item_sequence_tss_str],
     }
     push_data = {
         "push_source_name": "user_rating_stats_push_source",
         "df": event_dict,
         "to": "online",
     }
-    logger.info(f"{event_dict=}")
+    logger.info(f"Event data to be pushed to feature store PUSH API {event_dict}")
     r = requests.post(
         f"http://{FEAST_ONLINE_SERVER_HOST}:{FEAST_ONLINE_SERVER_PORT}/push",
         data=json.dumps(push_data),

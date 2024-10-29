@@ -1,0 +1,3 @@
+# Include this to ignore loading data/ in the build context.
+# In Ubuntu, this can lead to build error due to data/postgres permission
+data/

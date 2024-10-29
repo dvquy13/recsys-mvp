@@ -8,7 +8,7 @@ import redis
 from fastapi import FastAPI, HTTPException, Query
 from load_examples import custom_openapi
 from loguru import logger
-from pydantic_models import FeatureRequest
+from pydantic_models import FeatureRequest, FeatureRequestFeature, FeatureRequestResult
 from utils import debug_logging_decorator
 
 app = FastAPI()
@@ -278,27 +278,34 @@ async def feature_store_fetch_item_sequence(user_id: str):
     """
     Quick work around to get feature sequences from both streaming sources and common online sources
     """
+    feature_view = "user_rating_stats"
+    item_sequence_feature = FeatureRequestFeature(
+        feature_view=feature_view, feature_name="user_rating_list_10_recent_asin"
+    )
+    item_sequence_ts_feature = FeatureRequestFeature(
+        feature_view=feature_view,
+        feature_name="user_rating_list_10_recent_asin_timestamp",
+    )
+
     fr = FeatureRequest(
         entities={"user_id": [user_id]},
         features=[
-            "user_rating_stats_fresh:user_rating_list_10_recent_asin",
-            "user_rating_stats:user_rating_list_10_recent_asin",
+            item_sequence_feature.get_full_name(fresh=True, is_request=True),
+            item_sequence_feature.get_full_name(fresh=False, is_request=True),
+            item_sequence_ts_feature.get_full_name(fresh=True, is_request=True),
+            item_sequence_ts_feature.get_full_name(fresh=False, is_request=True),
         ],
     )
     response = await fetch_features(fr)
 
-    # Since the values returned from Fease Server will contain an array containing [user_id] + features
-    # So the feature idx is offset by 1
-    fresh_idx = 1
-    common_idx = 2
+    result = FeatureRequestResult(
+        metadata=response["metadata"], results=response["results"]
+    )
+    item_sequence = result.get_feature_value(item_sequence_feature)
+    item_sequence_ts = result.get_feature_value(item_sequence_ts_feature)
 
-    feature_results = response["results"]
-    get_feature_values = lambda idx: feature_results[idx]["values"][0]
-    fresh_item_sequence_str = get_feature_values(fresh_idx)
-    if fresh_item_sequence_str is not None:
-        item_sequence = fresh_item_sequence_str.split(",")
-    else:
-        common_item_sequence_str = get_feature_values(common_idx)
-        item_sequence = common_item_sequence_str.split(",")
-
-    return {"user_id": user_id, "item_sequence": item_sequence}
+    return {
+        "user_id": user_id,
+        "item_sequence": item_sequence,
+        "item_sequence_ts": item_sequence_ts,
+    }
