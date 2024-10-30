@@ -224,6 +224,7 @@ echo "Visit http://localhost:8000/docs to interact with the APIs"
 ```
 
 # Demo interaction and streaming feature update
+This section assumes we have run `make ml-platform-up`, `make feature-server-up` and `make api-up`
 ```shell
 cd $ROOT_DIR/ui
 poetry run gradio app.py
@@ -237,8 +238,9 @@ make clean
 ```
 
 # Improve
-<!-- To make sure we have the right data when developing at local, we need to clean the $ROOT_DIR/data and re-run the process on local (not inside Docker) to process the data -->
-Experiment with a ranker that can combines multiple signals.
+- Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
+- Run [notebook 022-ranker](./notebooks/022-ranker.ipynb) to refit the ranker with more features where we aim to reach ROC-AUC ~ 0.87
+- In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
 
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.
