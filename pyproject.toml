@@ -29,6 +29,7 @@ boto3 = "^1.35.37"
 qdrant-client = "1.12.0"
 sqlalchemy = "<2.0"  # <2.0 to be compatible with airflow 2.10.2
 sentence-transformers = "^3.2.1"
+openai = "^1.54.1"
 
 
 [tool.poetry.group.training.dependencies]
