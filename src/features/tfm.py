@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import FunctionTransformer, MinMaxScaler, StandardScaler
@@ -15,7 +16,10 @@ def flatten_string_array_col(X):
     """
     The inputs contain columns with list of sentences. To properly analyze them we would flatten them.
     """
-    return np.array(["\n".join(x) for x in X])
+    assert isinstance(X, pd.Series)
+    output = X.fillna("").str.join("\n")
+    assert X.shape[0] == output.shape[0]
+    return output.values
 
 
 def todense(X):

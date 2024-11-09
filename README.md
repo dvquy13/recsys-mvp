@@ -232,6 +232,16 @@ poetry run gradio app.py
 
 Then you can try to rate some items and then see if the recommendations are updated accordingly.
 
+# LLM
+
+## Extract item tags from LLM
+- Update [RunCfg](./cfg/run_cfg.py) with `use_item_tags_from_llm = True`
+- Run notebook [040](./notebooks/040-retrieve-item-tags-from-llm.ipynb) to extract the item tags using LLM
+- Run notebook [002](./notebooks/002-features-v2.ipynb) to create new item metadata transformation pipeline
+- Re-run notebook [020](./notebooks/020-negative-sample.ipynb) to update datasets
+- Re-run notebook [022](./notebooks/022-ranker.ipynb) to re-fit model
+
+
 ## Clean up
 ```shell
 make clean
