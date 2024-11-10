@@ -1,17 +1,12 @@
 # Implement an MVP RecSys
 
 # Prerequisite
-- Poetry 1.8.3
+- Poetry >= 1.8.3
 - Miniconda or alternatives that can create new Python environment with a specified Python version
 - Docker
 - PostgreSQL
   - For Mac, run: `brew install postgresql`
-  - For Ubuntu, run: `sudo apt-get update && sudo apt-get install -y libpq-dev`
-
-> [!TIP]
-> **VSCode auto load `.env`**
-> For convenience, you should enable your IDE to automatically load the `.env` as environment vars.
-> If using VSCode then this is done automatically as long as you have VSCode Python Extension installed.
+  - For Ubuntu, run: `sudo apt-get update && sudo apt-get install -y gcc libpq-dev`
 
 > [!IMPORTANT]
 > **Increase Docker memory to 16GB**
@@ -26,16 +21,17 @@
 - Make sure Poetry use the new Python 3.11.9 environment: `poetry env use .venv/bin/python`
 - Install Python dependencies with Poetry: `poetry install`
 
+> [!TIP]
+> **VSCode auto load `.env`**
+> For convenience, you should enable your IDE to automatically load the `.env` as environment vars.
+> If using VSCode then this is done automatically as long as you have VSCode Python Extension installed.
+
 # Start services
 ## Common services
 - Run `make ml-platform-up && make ml-platform-logs` to start the supporting services
 - Wait until you see "Booting worker with pid..." then you can Ctrl + C to exit the logs following process
 
 ## Airflow
-> [!WARNING]
-> **Local Docker Airflow requires some serious resources**
-> You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
-
 ```shell
 cd $ROOT_DIR
 make airflow-up && make airflow-logs
@@ -49,6 +45,10 @@ make airflow-up && make airflow-logs
 ```
 
 - Wait until you see "airflow-webserver: Booting worker with pid..." then you can Ctrl + C to exit the logs following process
+
+> [!WARNING]
+> **Local Docker Airflow requires some serious resources**
+> You might need to monitor the Airflow service logs at startup to check if they complain anything about your available resources
 
 # Prepare data
 ## Sample data
@@ -232,25 +232,30 @@ poetry run gradio app.py
 
 Then you can try to rate some items and then see if the recommendations are updated accordingly.
 
-# LLM
+# Improve
+## Add new features
+- Double check `cfg/run_cfg.py` to have both `use_sbert_features` and `use_item_tags_from_llm` set to False
+- Run [notebook 022-ranker](./notebooks/022-ranker.ipynb) to refit the ranker with more features where we aim to reach ROC-AUC ~ 0.87
+- In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
 
-## Extract item tags from LLM
+## Use LLM features
+### Use SBERT to get embeddings of long textual features
+- Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
+### Extract item tags from LLM
 - Update [RunCfg](./cfg/run_cfg.py) with `use_item_tags_from_llm = True`
 - Run notebook [040](./notebooks/040-retrieve-item-tags-from-llm.ipynb) to extract the item tags using LLM
 - Run notebook [002](./notebooks/002-features-v2.ipynb) to create new item metadata transformation pipeline
 - Re-run notebook [020](./notebooks/020-negative-sample.ipynb) to update datasets
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to re-fit model
 
+---
 
 ## Clean up
 ```shell
 make clean
 ```
 
-# Improve
-- Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
-- Run [notebook 022-ranker](./notebooks/022-ranker.ipynb) to refit the ranker with more features where we aim to reach ROC-AUC ~ 0.87
-- In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
+---
 
 # Troubleshooting
 - If you run into Kernel Died error while runninng build training_pipeline, it might possibly due to Docker is not granted enough memory. You can try increasing the Docker memory allocation.
