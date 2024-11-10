@@ -239,6 +239,9 @@ Then you can try to rate some items and then see if the recommendations are upda
 - In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
 
 ## Use LLM features
+
+You need to add `OPENAI_API_KEY` value to `.env`. Note that the below steps would call OpenAI API endpoints and hence can cause about 0.5 - 1.0 USD.
+
 ### Use SBERT to get embeddings of long textual features
 - Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
 ### Extract item tags from LLM

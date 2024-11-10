@@ -45,6 +45,7 @@ class LitRanker(L.LightningModule):
         args: BaseModel = None,
         neg_to_pos_ratio: int = 1,
         checkpoint_callback=None,
+        accelerator: str = "cpu",
     ):
         super().__init__()
         self.model = model
@@ -61,6 +62,7 @@ class LitRanker(L.LightningModule):
         self.args = args
         self.neg_to_pos_ratio = neg_to_pos_ratio
         self.checkpoint_callback = checkpoint_callback
+        self.accelerator = accelerator
 
     def log_weight_norms(self, stage="train"):
         for name, param in self.model.named_parameters():
@@ -164,7 +166,8 @@ class LitRanker(L.LightningModule):
             )
             self.model = LitRanker.load_from_checkpoint(
                 self.checkpoint_callback.best_model_path, model=self.model
-            ).model.to(self.device)
+            ).model
+        self.model = self.model.to(self._get_device())
         logger.info(f"Logging classification metrics...")
         self._log_classification_metrics()
         if self.evaluate_ranking:
@@ -184,12 +187,14 @@ class LitRanker(L.LightningModule):
         classifications = []
 
         for _, batch_input in enumerate(val_loader):
-            _input_user_ids = batch_input["user"]
-            _input_item_ids = batch_input["item"]
-            _input_item_sequences = batch_input["item_sequence"]
-            _input_item_sequence_ts_buckets = batch_input["item_sequence_ts_bucket"]
-            _input_item_features = batch_input["item_feature"]
-            _labels = batch_input["rating"]
+            _input_user_ids = batch_input["user"].to(self._get_device())
+            _input_item_ids = batch_input["item"].to(self._get_device())
+            _input_item_sequences = batch_input["item_sequence"].to(self._get_device())
+            _input_item_sequence_ts_buckets = batch_input["item_sequence_ts_bucket"].to(
+                self._get_device()
+            )
+            _input_item_features = batch_input["item_feature"].to(self._get_device())
+            _labels = batch_input["rating"].to(self._get_device())
             _classifications = self.model.predict(
                 _input_user_ids,
                 _input_item_sequences,
@@ -290,15 +295,16 @@ class LitRanker(L.LightningModule):
             subset=[user_col]
         )
         recommendations = self.model.recommend(
-            torch.tensor(to_rec_df["user_indice"].values, device=self.device),
+            torch.tensor(to_rec_df["user_indice"].values, device=self._get_device()),
             torch.tensor(
-                to_rec_df["item_sequence"].values.tolist(), device=self.device
+                to_rec_df["item_sequence"].values.tolist(), device=self._get_device()
             ),
             torch.tensor(
-                to_rec_df["item_sequence_ts_bucket"].values.tolist(), device=self.device
+                to_rec_df["item_sequence_ts_bucket"].values.tolist(),
+                device=self._get_device(),
             ),
-            torch.tensor(self.all_items_features, device=self.device),
-            torch.tensor(self.all_items_indices, device=self.device),
+            torch.tensor(self.all_items_features, device=self._get_device()),
+            torch.tensor(self.all_items_indices, device=self._get_device()),
             k=top_K,
             batch_size=4,
         )
@@ -371,3 +377,6 @@ class LitRanker(L.LightningModule):
 
     def _get_loss_fn(self, weights):
         return nn.BCELoss(weights)
+
+    def _get_device(self):
+        return self.accelerator

@@ -41,6 +41,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
         evaluate_ranking: bool = False,
         idm: IDMapper = None,
         args: BaseModel = None,
+        accelerator: str = "cpu",
     ):
         super().__init__()
         self.model = model
@@ -53,6 +54,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
         self.evaluate_ranking = evaluate_ranking
         self.idm = idm
         self.args = args
+        self.accelerator = accelerator
 
     def training_step(self, batch, batch_idx):
         input_user_ids = batch["user"]
@@ -121,6 +123,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
             self.log("learning_rate", sch.get_last_lr()[0], sync_dist=True)
 
     def on_fit_end(self):
+        self.model = self.model.to(self._get_device())
         logger.info(f"Logging classification metrics...")
         self._log_classification_metrics()
         if self.evaluate_ranking:
@@ -140,10 +143,10 @@ class LitSequenceRatingPrediction(L.LightningModule):
         classifications = []
 
         for _, batch_input in enumerate(val_loader):
-            _input_user_ids = batch_input["user"]
-            _input_item_ids = batch_input["item"]
-            _input_item_sequences = batch_input["item_sequence"]
-            _labels = batch_input["rating"]
+            _input_user_ids = batch_input["user"].to(self._get_device())
+            _input_item_ids = batch_input["item"].to(self._get_device())
+            _input_item_sequences = batch_input["item_sequence"].to(self._get_device())
+            _labels = batch_input["rating"].to(self._get_device())
             _classifications = self.model.predict(
                 _input_user_ids, _input_item_sequences, _input_item_ids
             ).view(_labels.shape)
@@ -240,9 +243,9 @@ class LitSequenceRatingPrediction(L.LightningModule):
             subset=[user_col]
         )
         recommendations = self.model.recommend(
-            torch.tensor(to_rec_df["user_indice"].values, device=self.device),
+            torch.tensor(to_rec_df["user_indice"].values, device=self._get_device()),
             torch.tensor(
-                to_rec_df["item_sequence"].values.tolist(), device=self.device
+                to_rec_df["item_sequence"].values.tolist(), device=self._get_device()
             ),
             k=top_K,
             batch_size=4,
@@ -317,3 +320,6 @@ class LitSequenceRatingPrediction(L.LightningModule):
     def _get_loss_fn(self):
         return nn.BCELoss()
         # return nn.MSELoss()
+
+    def _get_device(self):
+        return self.accelerator

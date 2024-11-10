@@ -24,19 +24,19 @@ class RankerInferenceWrapper(mlflow.pyfunc.PythonModel):
         self.idm = IDMapper().load(json_path)
 
         # Qdrant
-        if not (qdrant_host := os.getenv("QDRANT_HOST")):
-            raise Exception(f"Environment variable QDRANT_HOST is not set.")
-        qdrant_port = os.getenv("QDRANT_PORT")
-        qdrant_url = f"{qdrant_host}:{qdrant_port}"
-        self.ann_index = AnnIndex(
-            qdrant_url=qdrant_url, qdrant_collection_name="item_desc_sbert"
-        )
+        self.use_sbert_features = context.model_config["use_sbert_features"]
+        if self.use_sbert_features:
+            if not (qdrant_host := os.getenv("QDRANT_HOST")):
+                raise Exception(f"Environment variable QDRANT_HOST is not set.")
+            qdrant_port = os.getenv("QDRANT_PORT")
+            qdrant_url = f"{qdrant_host}:{qdrant_port}"
+            self.ann_index = AnnIndex(
+                qdrant_url=qdrant_url, qdrant_collection_name="item_desc_sbert"
+            )
 
         item_metadata_pipeline_fp = context.artifacts["item_metadata_pipeline"]
         with open(item_metadata_pipeline_fp, "rb") as f:
             self.item_metadata_pipeline = dill.load(f)
-
-        self.use_sbert_features = context.model_config["use_sbert_features"]
 
     def predict(self, context, model_input, params=None):
         """
