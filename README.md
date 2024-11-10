@@ -234,18 +234,20 @@ Then you can try to rate some items and then see if the recommendations are upda
 
 # Improve
 ## Add new features
-- Double check `cfg/run_cfg.py` to have both `use_sbert_features` and `use_item_tags_from_llm` set to False
+- Double check [RunCfg](./cfg/run_cfg.py) to have both `use_sbert_features` and `use_item_tags_from_llm` set to `False`
 - Run [notebook 022-ranker](./notebooks/022-ranker.ipynb) to refit the ranker with more features where we aim to reach ROC-AUC ~ 0.87
 - In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
 
 ## Use LLM features
 
-You need to add `OPENAI_API_KEY` value to `.env`. Note that the below steps would call OpenAI API endpoints and hence can cause about 0.5 - 1.0 USD.
+- You need to add `OPENAI_API_KEY` value to `.env`. Note that the below steps would call OpenAI API endpoints and hence can cause about 0.5 - 1.0 USD.
+- Open [RunCfg](./cfg/run_cfg.py) and set `use_sbert_features` = True but keep `use_item_tags_from_llm` to `False`
 
 ### Use SBERT to get embeddings of long textual features
 - Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
+- Re-run notebook [022](./notebooks/022-ranker.ipynb) to check the results
 ### Extract item tags from LLM
-- Update [RunCfg](./cfg/run_cfg.py) with `use_item_tags_from_llm = True`
+- Open [RunCfg](./cfg/run_cfg.py) and set both `use_sbert_features` = True and `use_item_tags_from_llm` to `True`
 - Run notebook [040](./notebooks/040-retrieve-item-tags-from-llm.ipynb) to extract the item tags using LLM
 - Run notebook [002](./notebooks/002-features-v2.ipynb) to create new item metadata transformation pipeline
 - Re-run notebook [020](./notebooks/020-negative-sample.ipynb) to update datasets
