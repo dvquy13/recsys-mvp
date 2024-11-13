@@ -254,8 +254,27 @@ Then you can try to rate some items and then see if the recommendations are upda
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to re-fit model
 
 ---
+# Run test
+## Unit tests and Functional tests
+```shell
+cd $ROOT_DIR
+poetry run pytest -vs tests --disable-warnings
+```
 
-## Clean up
+## Data Validation tests
+The data validation tests normally aim to test two things:
+1. Data integrity: Whether the input data satisfies some of our assumptions about the data itself, for example column ID must be unique
+2. Data drift: Whether the new input data drifts away from a reference data, which is normally the original development dataset we build models upon
+
+For these types of tests, since it's closely related to the data itself, one option is to place various tests where they need to take place.
+
+In this repo, pay attention to where the `assert` clause is used in the non-model data, like the [features notebook](./notebooks/002-features-v2.ipynb).
+
+Also there is a demo in terms of new data validation in the [050 notebook](./notebooks/050-data-validation.ipynb).
+
+---
+
+# Clean up
 ```shell
 make clean
 ```
