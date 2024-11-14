@@ -17,7 +17,7 @@ ROOT_DIR = os.getenv("ROOT_DIR")
 CUR_DIR = os.path.abspath(os.path.join(__file__, ".."))
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def batch_sequences_fp():
     # This data originates from running notebook notebooks/010-prep-item2vec.ipynb.
     # But essentially just random data so can actually use the above sequences_fp.

@@ -17,7 +17,7 @@ ROOT_DIR = os.getenv("ROOT_DIR")
 CUR_DIR = os.path.abspath(os.path.join(__file__, ".."))
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def sequences_fp():
     sequences = [
         ["b", "c", "d", "e", "a"],
