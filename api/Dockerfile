@@ -19,8 +19,8 @@ RUN pip install -r requirements.txt && \
 RUN rm -f requirements.txt
 
 # Copy the rest of the application files
-COPY main.py load_examples.py /app/
+COPY main.py load_examples.py logging_utils.py utils.py __init__.py pydantic_models.py /app/api/
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

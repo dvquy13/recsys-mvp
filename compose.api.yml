@@ -12,8 +12,8 @@ services:
       - SEQRP_MODEL_SERVER_URL=http://seqrp_model_server:3000
       - FEAST_ONLINE_SERVER_HOST=feature_online_server
     volumes:
-      - ./api:/app/
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      - ./api:/app/api
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   seqrp_model_server:
     container_name: seqrp_model_server

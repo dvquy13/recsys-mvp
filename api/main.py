@@ -1,17 +1,28 @@
 import asyncio
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional
 
 import httpx
 import redis
 from fastapi import FastAPI, HTTPException, Query
-from load_examples import custom_openapi
 from loguru import logger
-from pydantic_models import FeatureRequest, FeatureRequestFeature, FeatureRequestResult
-from utils import debug_logging_decorator
+
+from .load_examples import custom_openapi
+from .logging_utils import RequestIDMiddleware
+from .pydantic_models import FeatureRequest, FeatureRequestFeature, FeatureRequestResult
+from .utils import debug_logging_decorator
 
 app = FastAPI()
+app.add_middleware(RequestIDMiddleware)
+
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | request_id: {extra[rec_id]} - {message}",
+)
+
 
 SEQRP_MODEL_SERVER_URL = os.getenv("SEQRP_MODEL_SERVER_URL", "http://localhost:3000")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -209,7 +220,10 @@ async def score_seq_rating_prediction(
         }
     }
 
-    logger.debug(f"Payload prepared: {payload}")
+    # Using json.dumps to format payload as json string so that later can extract from logs and rebuild the data easily
+    logger.debug(
+        f"[COLLECT] Payload prepared: <features>{json.dumps(payload)}</features>"
+    )
 
     # Step 2: Make the POST request to the external service
     try:
@@ -225,7 +239,9 @@ async def score_seq_rating_prediction(
 
         # Step 3: Handle response
         if response.status_code == 200:
-            logger.debug(f"Response from external service: {response.json()}")
+            logger.debug(
+                f"[COLLECT] Response from external service: <result>{json.dumps(response.json())}</result>"
+            )
             result = response.json()
 
             return result

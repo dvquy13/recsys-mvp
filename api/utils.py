@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Callable, List, Optional
+from typing import Callable, List
 
 from loguru import logger
 
