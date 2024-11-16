@@ -94,7 +94,7 @@ def test_skipgram_overfit(batch_sequences_fp: str):
 
     # After training is complete
     train_loss_epoch = trainer.callback_metrics.get("train_loss_epoch")
-    logger.info("Latest train loss for the last epoch:", train_loss_epoch)
+    logger.info(f"Latest train loss for the last epoch: {train_loss_epoch}")
     assert (
         train_loss_epoch < 0.1
     ), "Overfit 1 small batch should result in loss close to 0"
