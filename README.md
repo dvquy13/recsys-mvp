@@ -254,6 +254,7 @@ Then you can try to rate some items and then see if the recommendations are upda
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to re-fit model
 
 ---
+
 # Run test
 ## Unit tests and Functional tests
 ```shell
@@ -271,6 +272,14 @@ For these types of tests, since it's closely related to the data itself, one opt
 In this repo, pay attention to where the `assert` clause is used in the non-model data, like the [features notebook](./notebooks/002-features-v2.ipynb).
 
 Also there is a demo in terms of new data validation in the [050 notebook](./notebooks/050-data-validation.ipynb).
+
+## API logging
+Apart from the observability requirements for any types of API like latency, number of requests, etc., we normally log these following information:
+- Input Features to  model
+- Model version
+- A unique identifier for each model request, like `rec_id`
+  - This `rec_id` is attached to every logger call and the response output for online debugging purpose
+  - It is also used as the key to map with user's interaction events like click and conversion. These events are implemented by different engineer teams and we would ask them to forward this rec_id to downstream instrumentation flow.
 
 ---
 

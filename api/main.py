@@ -161,6 +161,7 @@ async def get_recommendations_u2i_rerank(
     # Step 6: Extract scores from the result
     scores = reranked_recs.get("scores", [])
     returned_items = reranked_recs.get("item_ids", [])
+    reranked_metadata = reranked_recs.get("metadata", {})
     if not scores or len(scores) != len(all_items):
         error_message = "[DEBUG] Mismatch sizes between returned scores and all items"
         logger.debugr("{}", error_message)
@@ -183,6 +184,7 @@ async def get_recommendations_u2i_rerank(
             "rec_item_ids": list(sorted_item_ids)[:count],
             "rec_scores": list(sorted_scores)[:count],
         },
+        "metadata": {"rerank": reranked_metadata},
     }
 
     return result

@@ -24,7 +24,10 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 async for chunk in response.body_iterator:
                     response_body += chunk
                 response_json = json.loads(response_body.decode("utf-8"))
-                response_json["rec_id"] = rec_id
+                if "metadata" in response_json:
+                    response_json["metadata"]["rec_id"] = rec_id
+                else:
+                    response_json["metadata"] = {"rec_id": rec_id}
 
                 modified_response = json.dumps(response_json).encode("utf-8")
                 response.headers["Content-Length"] = str(len(modified_response))
