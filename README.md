@@ -126,7 +126,7 @@ Set up Feature Server to serve both online and offline features
 ```shell
 cd $ROOT_DIR
 make feature-server-up
-sleep 5 && echo "Visit Feate Store Web UI at: http://localhost:${FEAST_UI_PORT:-8887}"
+sleep 5 && echo "Visit Feature Store Web UI at: http://localhost:${FEAST_UI_PORT:-8887}"
 ```
 
 Make feature request to Feature Server:
