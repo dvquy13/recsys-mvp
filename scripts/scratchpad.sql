@@ -45,7 +45,16 @@ select distinct
 	        EXCLUDE TIES
 	    ), 
 	    ','
-    ) AS user_asin_review_list_10_recent_asin
+    ) AS user_asin_review_list_10_recent_asin,
+	array_to_string(
+		ARRAY_AGG(extract(epoch from timestamp)::int) OVER (
+	        PARTITION BY user_id
+	        ORDER BY timestamp
+	        ROWS BETWEEN 10 PRECEDING AND 1 preceding
+	        EXCLUDE TIES
+	    ), 
+	    ','
+    ) AS user_asin_review_list_10_recent_asin_timestamp
 FROM
     raw
 where 1=1
@@ -69,8 +78,6 @@ from
 	raw_agg
 )
 
-select * from agg_dedup
-
 , agg_final as (
 select
 	*
@@ -92,3 +99,24 @@ select * from agg_final;
 select * from dwh.feature_store_offline.user_rating_stats urs ;
 
 select * from dwh.feature_store_offline.user_rating_stats urs where user_id = 'AFSRWCSLY3A23NXXWK2M6IQF4VMA';
+
+-- <User cat pref>
+
+with
+raw as (
+select distinct
+	*
+from
+	oltp.amz_review_rating_raw
+)
+
+select
+	timestamp,
+	user_id,
+	'rate' as action,
+	'parent_asin' as object_type,
+	parent_asin as object_id
+from
+	raw
+
+-- </User cat pref>
