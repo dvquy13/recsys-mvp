@@ -109,6 +109,14 @@ select
 	TIMESTAMP '2022-06-30' as current_timestamp
 )
 
+, vars__lrfmp_weight as (
+SELECT
+  0.5 as length_weight,
+  0.5 as recency_weight,
+  0.5 as frequency_weight,
+  2.0 as monetary_weight
+)
+
 , txn as (
 select distinct
 	*
@@ -154,7 +162,12 @@ select * from item_has_tag_activities
 select
   *,
   EXTRACT(day FROM time - LAG(time) OVER (PARTITION BY user_id, tags ORDER BY time)) AS days_from_prev_action_related_to_tag,
-  ROW(time, action, object_id, rel_object_tag) AS user_tag_action_metadata
+  jsonb_build_object(
+    'time', time,
+    'action', action,
+    'object_id', object_id,
+    'rel_object_tag', rel_object_tag
+  ) AS user_tag_action_metadata
 from
   user_tag_pref_activities
 where 1=1
@@ -214,6 +227,36 @@ using
 where 1=1
 )
 
-select * from user_tag_pref_score__lrfmp;
+, user_tag_pref_score__lrfmp_rank as (
+select
+  *,
+  dense_rank() over (partition by user_id order by length asc) as length_rank,
+  dense_rank() over (partition by user_id order by recency desc) as recency_rank,
+  dense_rank() over (partition by user_id order by frequency asc) as frequency_rank,
+  dense_rank() over (partition by user_id order by monetary asc) as monetary_rank
+from
+  user_tag_pref_score__lrfmp
+)
+
+, output as (
+select
+  u.user_id,
+  u.tags,
+  (length_rank * w.length_weight + recency_rank * w.recency_weight + frequency_rank * w.frequency_weight + monetary_rank * w.monetary_weight) as user_tag_pref_score,
+  u.user_tag_action_metadata, 
+  u.length,
+  u.length_rank,
+  u.recency,
+  u.recency_rank,
+  u.frequency,
+  u.frequency_rank,
+  u.monetary,
+  u.monetary_rank
+from
+  user_tag_pref_score__lrfmp_rank u,
+  vars__lrfmp_weight w
+)
+
+select * from output;
 
 -- </User cat pref>
