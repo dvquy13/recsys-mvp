@@ -5,7 +5,7 @@ vars as (
 select
   -- Small details, but choose this date as it's relatively the latest date in the dataset
   -- TODO: Update to current_timestamp when running on production
-  TIMESTAMP '2022-06-30' as current_timestamp
+  TIMESTAMP '2022-06-14' as current_timestamp
 )
 
 , vars__lrfmp_weight as (

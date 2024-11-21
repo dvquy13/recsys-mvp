@@ -103,7 +103,7 @@ EOF
 
 echo "Run dbt tranformation"
 poetry run dbt deps
-poetry run dbt build --models marts.amz_review_rating
+poetry run dbt build --models marts
 ```
 
 ## Feature Store
@@ -140,7 +140,8 @@ curl -X POST \
     \"features\": [
         \"user_rating_stats:user_rating_cnt_90d\",
         \"user_rating_stats:user_rating_avg_prev_rating_90d\",
-        \"user_rating_stats:user_rating_list_10_recent_asin\"
+        \"user_rating_stats:user_rating_list_10_recent_asin\",
+        \"user_tag_pref:user_tag_pref_score_full_list\"
     ],
     \"entities\": {
       \"user_id\": [
@@ -188,7 +189,8 @@ curl -X POST \
     \"features\": [
         \"user_rating_stats:user_rating_cnt_90d\",
         \"user_rating_stats:user_rating_avg_prev_rating_90d\",
-        \"user_rating_stats:user_rating_list_10_recent_asin\"
+        \"user_rating_stats:user_rating_list_10_recent_asin\",
+        \"user_tag_pref:user_tag_pref_score_full_list\"
     ],
     \"entities\": {
       \"user_id\": [
@@ -280,6 +282,12 @@ Apart from the observability requirements for any types of API like latency, num
 - A unique identifier for each model request, like `rec_id`
   - This `rec_id` is attached to every logger call and the response output for online debugging purpose
   - It is also used as the key to map with user's interaction events like click and conversion. These events are implemented by different engineer teams and we would ask them to forward this rec_id to downstream instrumentation flow.
+
+---
+
+# Explainability
+
+## User Tag Preference Recall
 
 ---
 
