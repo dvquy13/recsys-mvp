@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import sys
 from typing import Any, Dict, List, Optional
 
@@ -37,6 +38,7 @@ redis_client = redis.Redis(
 redis_output_i2i_key_prefix = "output:i2i:"
 redis_feature_recent_items_key_prefix = "feature:user:recent_items:"
 redis_output_popular_key = "output:popular"
+redis_item_tag_key_prefix = "dim:tag_item_map:"
 
 # Set the custom OpenAPI schema with examples
 app.openapi = lambda: custom_openapi(
@@ -62,6 +64,18 @@ def get_recommendations_from_redis(
         rec_item_ids = rec_item_ids[:count]
         rec_scores = rec_scores[:count]
     return {"rec_item_ids": rec_item_ids, "rec_scores": rec_scores}
+
+
+def get_items_from_tag_redis(
+    redis_key: str, count: Optional[int] = 100
+) -> Dict[str, Any]:
+    items = redis_client.smembers(redis_key)
+    if not items:
+        error_message = f"[DEBUG] No items found for key: {redis_key}"
+        logger.error(error_message)
+        raise HTTPException(status_code=404, detail=error_message)
+    random.shuffle(items)
+    return {"items": items[:count], "redis_key": redis_key}
 
 
 @app.get("/recs/i2i")
@@ -190,6 +204,112 @@ async def get_recommendations_u2i_rerank(
     return result
 
 
+@app.get(
+    "/recs/u2i/rerank_v2",
+    summary="End-to-end retrieve-rerank flow from user to item recommendations",
+)
+@debug_logging_decorator
+async def get_recommendations_u2i_rerank(
+    user_id: str = Query(
+        ..., description="ID of the user to provide recommendations for"
+    ),
+    top_k_retrieval: Optional[int] = Query(
+        100, description="Number of retrieval results to use"
+    ),
+    count: Optional[int] = Query(10, description="Number of recommendations to return"),
+    debug: bool = Query(False, description="Enable debug logging"),
+):
+    rec_title = "Recommended For You"
+    retrievers = []
+
+    # Get retrieves concurrently
+    popular_recs, last_item_i2i_recs, user_tag_pref = await asyncio.gather(
+        get_recommendations_popular(count=top_k_retrieval, debug=False),
+        get_recommendations_u2i_last_item_i2i(
+            user_id=user_id, count=top_k_retrieval, debug=False
+        ),
+        retrieve_user_tag_pref(user_id=user_id, count=10, debug=False),
+    )
+
+    # Prioritize user_tag_pref retrieve
+    if user_tags := user_tag_pref.get("data"):
+        logger.debug(f"Creating retrieve based on user tag preferences {user_tags}...")
+        # Get top 5 tags. The list user tags is sorted by score already.
+        user_tags = user_tags[:5]
+        # Select random one tag as retrieve key
+        chosen = random.choice(user_tags)
+        tag = chosen["tag"]
+        redis_key = redis_item_tag_key_prefix + tag
+        logger.debug(f"Calling redis with key {redis_key}...")
+        all_items = get_items_from_tag_redis(redis_key, count=top_k_retrieval).get(
+            "items", []
+        )
+        rec_title = f"Based on Your Interest in {tag} Titles"
+        retrievers.append("user_tag_pref")
+    else:
+        logger.debug(f"Merging popular retrieve and last item i2i retrieve...")
+        # Merge popular and i2i recommendations
+        all_items = set(popular_recs["recommendations"]["rec_item_ids"]).union(
+            set(last_item_i2i_recs["recommendations"]["rec_item_ids"])
+        )
+        all_items = list(all_items)
+        retrievers.extend(["popular", "last_item_i2i"])
+
+    logger.debug("Retrieved items: {}", all_items)
+
+    # Get item_sequence features
+    item_sequences = await feature_store_fetch_item_sequence(user_id)
+    item_sequences = item_sequences["item_sequence"]
+
+    # Remove rated items
+    set_item_sequences = set(item_sequences)
+    set_all_items = set(all_items)
+    already_rated_items = list(set_item_sequences.intersection(set_all_items))
+    logger.debug(
+        f"Removing {len(already_rated_items)} items already rated by this user: {already_rated_items}..."
+    )
+    all_items = list(set_all_items - set_item_sequences)
+
+    # Rerank
+    reranked_recs = await score_seq_rating_prediction(
+        user_ids=[user_id] * len(all_items),
+        item_sequences=[item_sequences] * len(all_items),
+        item_ids=all_items,
+    )
+
+    # Extract scores from the result
+    scores = reranked_recs.get("scores", [])
+    returned_items = reranked_recs.get("item_ids", [])
+    reranked_metadata = reranked_recs.get("metadata", {})
+    if not scores or len(scores) != len(all_items):
+        error_message = "[DEBUG] Mismatch sizes between returned scores and all items"
+        logger.debugr("{}", error_message)
+        raise HTTPException(status_code=500, detail=error_message)
+
+    # Create a list of tuples (item_id, score)
+    item_scores = list(zip(returned_items, scores))
+
+    # Sort the items based on the scores in descending order
+    item_scores.sort(key=lambda x: x[1], reverse=True)
+
+    # Unzip the sorted items and scores
+    sorted_item_ids, sorted_scores = zip(*item_scores)
+
+    # Return the reranked recommendations
+    result = {
+        "user_id": user_id,
+        "features": {"item_sequence": item_sequences},
+        "recommendations": {
+            "rec_item_ids": list(sorted_item_ids)[:count],
+            "rec_scores": list(sorted_scores)[:count],
+        },
+        "rec_title": rec_title,
+        "metadata": {"retrieve": retrievers, "rerank": reranked_metadata},
+    }
+
+    return result
+
+
 @app.get("/recs/popular")
 @debug_logging_decorator
 async def get_recommendations_popular(
@@ -198,6 +318,45 @@ async def get_recommendations_popular(
 ):
     recommendations = get_recommendations_from_redis(redis_output_popular_key, count)
     return {"recommendations": recommendations}
+
+
+@app.get("/recs/retrieve/user_tag_pref")
+@debug_logging_decorator
+async def retrieve_user_tag_pref(
+    user_id: str = Query(
+        ..., description="ID of the user to provide recommendations for"
+    ),
+    count: Optional[int] = Query(10, description="Number of items to return"),
+    debug: bool = Query(False, description="Enable debug logging"),
+):
+    feature_view = "user_tag_pref"
+    user_tag_pref_feature = FeatureRequestFeature(
+        feature_view=feature_view, feature_name="user_tag_pref_score_full_list"
+    )
+
+    fr = FeatureRequest(
+        entities={"user_id": [user_id]},
+        features=[user_tag_pref_feature.get_full_name(fresh=False, is_request=True)],
+    )
+    response = await fetch_features(fr)
+
+    result = FeatureRequestResult(
+        metadata=response["metadata"], results=response["results"]
+    )
+    feature_value = result.get_feature_value_no_fresh(user_tag_pref_feature)
+
+    if not feature_value:
+        return {"data": []}
+
+    # Example feature_value: Classic__4.0,Multiplayer__4.0
+    output = []
+    for tag_score in feature_value.split(","):
+        tag, score = tag_score.split("__")
+        output.append({"tag": tag, "score": score})
+
+    output = sorted(output, key=lambda x: x["score"], reverse=True)[:count]
+
+    return {"data": output}
 
 
 # New endpoint to connect to external service

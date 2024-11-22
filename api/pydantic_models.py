@@ -52,3 +52,14 @@ class FeatureRequestResult(BaseModel):
             common_feature_sequence_value_str = get_feature_values(common_idx)
             feature_sequence_value = common_feature_sequence_value_str.split(",")
         return feature_sequence_value
+
+    def get_feature_value_no_fresh(self, feature: FeatureRequestFeature):
+        """Get normal feature not including fresh source"""
+        common_idx = self.metadata.feature_names.index(
+            feature.get_full_name(fresh=False, is_request=False)
+        )
+
+        feature_results = self.results
+        get_feature_values = lambda idx: feature_results[idx].values[0]
+        feature_value = get_feature_values(common_idx)
+        return feature_value
