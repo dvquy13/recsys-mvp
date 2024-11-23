@@ -292,7 +292,7 @@ The idea of explainability here is to leverage tag systems to score which tag a 
 For example if we found a user buying a lot of items with the tag "ARPG" then we would retrieve the ARPG items and rank them with our ranker, then showing the recommendations as "Based on Your Interest in ARPG".
 The implementation is as follows:
 1. We build a rule-based scoring model named `user_tag_pref` to assign score between (user, tag) pairs: Look at [this SQL model](./feature_pipeline/dbt/feature_store/models/marts/user_tag_pref/user_tag_pref_v1.sql).
-2. We store the scores in Feature Store and tag-item mapper in Redis.
+2. We store the scores in Feature Store and tag-item mapper in Redis by running [notebook 041](./notebooks/041-upload-llm-tags-to-db.ipynb).
 3. At request time we check the `user_tag_pref` model output precomputed for that user, sample one tag from the top scored tags. Please refer to the endpoint `/recs/retrieve/user_tag_pref` in [API implementation](./api/main.py).
 4. Retrieve the items belonging to that tag as our retrieve outputs.
 5. Use our Ranker model to re-rank the candidates.
