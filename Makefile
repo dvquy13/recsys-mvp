@@ -26,6 +26,9 @@ lab:
 api-up:
 	docker compose -f compose.api.yml up -d
 
+api-logs:
+	docker compose -f compose.api.yml logs -f
+
 api-down:
 	docker compose -f compose.api.yml down
 

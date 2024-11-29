@@ -264,6 +264,7 @@ Then you can try to rate some items and then see if the recommendations are upda
 ## Unit tests and Functional tests
 ```shell
 cd $ROOT_DIR
+poetry install  # Run this when declaring `packages = [{ include = "src" }]` in pyproject.toml would register the ROOT_DIR in poetry PYTHONPATH.
 poetry run pytest -vs tests --disable-warnings
 ```
 
@@ -280,11 +281,73 @@ Also there is a demo in terms of new data validation in the [050 notebook](./not
 
 ## API logging
 Apart from the observability requirements for any types of API like latency, number of requests, etc., we normally log these following information:
-- Input Features to  model
+- Input Features to model
 - Model version
 - A unique identifier for each model request, like `rec_id`
   - This `rec_id` is attached to every logger call and the response output for online debugging purpose
   - It is also used as the key to map with user's interaction events like click and conversion. These events are implemented by different engineer teams and we would ask them to forward this rec_id to downstream instrumentation flow.
+
+### Logging in action
+Start the API services
+```shell
+cd $ROOT_DIR
+make requirements-txt
+make api-up
+echo "Visit http://localhost:8000/docs to interact with the APIs"
+```
+
+Try making a call to /rerank endpoint
+```shell
+curl -X 'GET' \
+  'http://localhost:8000/recs/u2i/rerank?user_id=AHO4TO4HFYJI3CSSQZR4APROVOBQ&top_k_retrieval=10&count=5&debug=false' \
+  -H 'accept: application/json'
+```
+
+Return should be like this:
+```json
+{
+    "user_id": "AHO4TO4HFYJI3CSSQZR4APROVOBQ",
+    "features": {
+        "item_sequence": [
+            "B0091XHZW8",
+            "B0081Q58AW",
+            "B008U4QPJI",
+            "B07HNW68ZC",
+            "B0BX8VPN1L",
+            "B07HYY6HNW",
+            "B01LXC1QL0",
+            "B0C23C5YP5",
+            "B09W5193NT"
+        ]
+    },
+    "recommendations": {
+        "rec_item_ids": [
+            "B0BVVTQ5JP",
+            "B07Q63K8QY",
+            "B0BYPDQN2W",
+            "B08DHTZNNF",
+            "B07HC1JR2H"
+        ],
+        "rec_scores": [
+            0.8570844531059265,
+            0.8442562818527222,
+            0.8401135206222534,
+            0.8352294564247131,
+            0.8158803582191467
+        ]
+    },
+    "metadata": {
+        "rerank": {
+            "model_version": "1",
+            "model_name": "sequence_rating_prediction"
+        },
+        "rec_id": "c6807a76-7400-41bd-bf17-e9660b49d405"
+    }
+}
+```
+
+Notice that `.metadata.rec_id` should contain the same unique request id as in the API logs by running `make api-logs`.
+
 
 ---
 
