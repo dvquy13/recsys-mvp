@@ -246,6 +246,7 @@ Then you can try to rate some items and then see if the recommendations are upda
 - Open [RunCfg](./cfg/run_cfg.py) and set `use_sbert_features` = True but keep `use_item_tags_from_llm` to `False`
 
 ### Use SBERT to get embeddings of long textual features
+- Make sure you have run `make ml-platform-up and make feature-server-up`
 - Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to check the results
 ### Extract item tags from LLM
@@ -254,6 +255,8 @@ Then you can try to rate some items and then see if the recommendations are upda
 - Run notebook [002](./notebooks/002-features-v2.ipynb) to create new item metadata transformation pipeline
 - Re-run notebook [020](./notebooks/020-negative-sample.ipynb) to update datasets
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to re-fit model
+- Make sure the newly trained model is aliased as `champion`. If not you can manually set that using MLflow UI
+- Run notebook [030-error-analysis](./notebooks/030-error-analysis.ipynb) with argument `run_llm_judge=True`
 
 ---
 
