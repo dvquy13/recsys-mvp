@@ -103,7 +103,7 @@ EOF
 
 echo "Run dbt tranformation"
 poetry run dbt deps
-poetry run dbt build --models marts.amz_review_rating
+poetry run dbt build --models marts.amz_review_rating marts.user_tag_pref
 ```
 
 ## Feature Store
@@ -140,8 +140,7 @@ curl -X POST \
     \"features\": [
         \"user_rating_stats:user_rating_cnt_90d\",
         \"user_rating_stats:user_rating_avg_prev_rating_90d\",
-        \"user_rating_stats:user_rating_list_10_recent_asin\",
-        \"user_tag_pref:user_tag_pref_score_full_list\"
+        \"user_rating_stats:user_rating_list_10_recent_asin\"
     ],
     \"entities\": {
       \"user_id\": [
@@ -189,8 +188,7 @@ curl -X POST \
     \"features\": [
         \"user_rating_stats:user_rating_cnt_90d\",
         \"user_rating_stats:user_rating_avg_prev_rating_90d\",
-        \"user_rating_stats:user_rating_list_10_recent_asin\",
-        \"user_tag_pref:user_tag_pref_score_full_list\"
+        \"user_rating_stats:user_rating_list_10_recent_asin\"
     ],
     \"entities\": {
       \"user_id\": [
@@ -359,12 +357,13 @@ For example if we found a user buying a lot of items with the tag "ARPG" then we
 The implementation is as follows:
 1. Add new source of tag-item mapper based on LLM extracted to our OLTP and Redis by running [notebook 041](./notebooks/041-upload-llm-tags-to-db.ipynb).
 2. Build a rule-based scoring model named `user_tag_pref` to assign score between (user, tag) pairs: Look at [this SQL model](./feature_pipeline/dbt/feature_store/models/marts/user_tag_pref/user_tag_pref_v1.sql).
-3. Run the above SQL transformation with `cd $ROOT_DIR/feature_pipeline/dbt/feature_store && poetry run dbt build --models marts.user_tag_pref`.
-4. Materialize the output user_tag_pref: `cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo && poetry run feast apply && poetry run feast materialize "1970-01-01" "2022-07-16" -v user_tag_pref`.
-5. Make API call to `/recs/u2i/rerank_v2`:
-  5.1. Here we check the `user_tag_pref` model output precomputed for that user, sample one tag from the top scored tags. Please refer to the endpoint `/recs/retrieve/user_tag_pref` in [API implementation](./api/main.py).
-  5.2. Retrieve the items belonging to that tag as our retrieve outputs.
-  5.3. Use our Ranker model to re-rank the candidates.
+3. Comment out the line with `user/user_tag_pref.py` in `$ROOT_DIR/feature_pipeline/feature_store/feature_repo/.feastignore` so that Feast will now see the file.
+4. Run the above SQL transformation with `cd $ROOT_DIR/feature_pipeline/dbt/feature_store && poetry run dbt build --models marts.user_tag_pref`.
+5. Materialize the output user_tag_pref: `cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo && poetry run feast apply && poetry run feast materialize "1970-01-01" "2022-07-16" -v user_tag_pref`.
+6. Make API call to `/recs/u2i/rerank_v2`:
+  6.1. Here we check the `user_tag_pref` model output precomputed for that user, sample one tag from the top scored tags. Please refer to the endpoint `/recs/retrieve/user_tag_pref` in [API implementation](./api/main.py).
+  6.2. Retrieve the items belonging to that tag as our retrieve outputs.
+  6.3. Use our Ranker model to re-rank the candidates.
 
 
 ---

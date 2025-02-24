@@ -9,7 +9,7 @@ models:
           combination_of_columns:
             - user_id
             - timestamp
-  - name: item_rating_stats
+  - name: parent_asin_rating_stats
     description: "Statistics of asin rating"
     data_tests:
       - dbt_utils.unique_combination_of_columns:
