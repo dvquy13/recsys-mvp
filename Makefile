@@ -21,7 +21,7 @@ airflow-logs:
 	- docker compose -f compose.airflow.yml logs -f
 
 lab:
-	poetry run jupyter lab --port 8888 --host 0.0.0.0
+	uv run jupyter lab --port 8888 --host 0.0.0.0
 
 api-up:
 	docker compose -f compose.api.yml up -d

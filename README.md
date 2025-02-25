@@ -1,7 +1,7 @@
 # Implement an MVP RecSys
 
 # Prerequisite
-- Poetry >= 1.8.3
+- uv >= 0.6.2
 - Miniconda or alternatives that can create new Python environment with a specified Python version
 - Docker
 - PostgreSQL
@@ -17,9 +17,7 @@
 - Create a new `.env` file based on `.env.example` and populate the variables there
 - Set up env var $ROOT_DIR: `export ROOT_DIR=$(pwd) && sed "s|^ROOT_DIR=.*|ROOT_DIR=$ROOT_DIR|" .env > .tmp && mv .tmp .env`
 - Run `export $(grep -v '^#' .env | xargs)` to load the variables
-- Create a new Python 3.11.9 environment: `conda create --prefix .venv python=3.11.9`
-- Make sure Poetry use the new Python 3.11.9 environment: `poetry env use .venv/bin/python`
-- Install Python dependencies with Poetry: `poetry install`
+- Run `uv sync --all-groups` to install the dependencies
 
 > [!TIP]
 > **VSCode auto load `.env`**
@@ -28,7 +26,7 @@
 
 # Start services
 ## Common services
-- Run `make ml-platform-up && make ml-platform-logs` to start the supporting services
+- Run `cd $ROOT_DIR && mkdir -p data && make ml-platform-up && make ml-platform-logs` to start the supporting services
 - Wait until you see "Booting worker with pid..." then you can Ctrl + C to exit the logs following process
 
 ## Airflow
@@ -54,14 +52,14 @@ make airflow-up && make airflow-logs
 ## Sample data
 ```shell
 echo "To start, we need to sample our main dataset from the bigger upstream dataset"
-cd $ROOT_DIR/notebooks && poetry run python 00-prep-data.py
+cd $ROOT_DIR/notebooks && uv run python 00-prep-data.py
 ```
 
 ## Simulate transaction data
 ```shell
 echo "Execute the notebook to populate the raw data into PostgreSQL"
 mkdir -p $ROOT_DIR/feature_pipeline/notebooks/papermill-output
-cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb
+cd $ROOT_DIR/feature_pipeline/notebooks && uv run papermill 001-simulate-oltp.ipynb papermill-output/001-simulate-oltp.ipynb
 ```
 
 # Feature pipeline
@@ -102,8 +100,8 @@ sources:
 EOF
 
 echo "Run dbt tranformation"
-poetry run dbt deps
-poetry run dbt build --models marts.amz_review_rating marts.user_tag_pref
+uv run dbt deps
+uv run dbt build --models marts.amz_review_rating
 ```
 
 ## Feature Store
@@ -113,11 +111,11 @@ poetry run dbt build --models marts.amz_review_rating marts.user_tag_pref
 # CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 # We can not use CURRENT_TIME here since it would mark the latest ingestion at CURRENT_TIME which is way pass the last timestamp for our data
 # So later we can not demo the flow to update feature store
-cd $ROOT_DIR && MATERIALIZE_CHECKPOINT_TIME=$(poetry run python scripts/check_oltp_max_timestamp.py 2>&1 | awk -F'<ts>|</ts>' '{print $2}')
+cd $ROOT_DIR && MATERIALIZE_CHECKPOINT_TIME=$(uv run python scripts/check_oltp_max_timestamp.py 2>&1 | awk -F'<ts>|</ts>' '{print $2}')
 echo "MATERIALIZE_CHECKPOINT_TIME=$MATERIALIZE_CHECKPOINT_TIME"
 cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo
-poetry run feast apply
-poetry run feast materialize-incremental $MATERIALIZE_CHECKPOINT_TIME -v parent_asin_rating_stats -v parent_asin_rating_stats_fresh -v user_rating_stats -v user_rating_stats_fresh
+uv run feast apply
+uv run feast materialize-incremental $MATERIALIZE_CHECKPOINT_TIME -v parent_asin_rating_stats -v parent_asin_rating_stats_fresh -v user_rating_stats -v user_rating_stats_fresh
 ```
 
 ### Feature Server
@@ -132,7 +130,7 @@ sleep 5 && echo "Visit Feature Store Web UI at: http://localhost:${FEAST_UI_PORT
 Make feature request to Feature Server:
 ```shell
 # Create a new shell
-USER_ID=$(poetry run python scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}') && echo $USER_ID
+USER_ID=$(uv run python scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}') && echo $USER_ID
 # Use double quotes in curl -d to enable env var $USER_ID substitution
 curl -X POST \
   "http://localhost:6566/get-online-features" \
@@ -161,18 +159,18 @@ Here we manually update our source OLTP data with new data, simulating new data 
 cd $ROOT_DIR
 make build-pipeline
 echo "Check the OLTP table to see the latest timestamp"
-poetry run python scripts/check_oltp_max_timestamp.py
+uv run python scripts/check_oltp_max_timestamp.py
 echo "Expect to see something like 2022-06-15. Later after we run the Airflow pipeline to trigger 002-append-hold-to-oltp notebook we should see new max timestamp denoting new data added"
 ```
 
 - Now go to Airflow UI http://localhost:8081, username=airflow password=airflow
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
   - In case the error log says: "Failed to establish connection to Docker host unix://var/run/docker.sock: Error while fetching server API version: ('Connection aborted.', PermissionError(13, 'Permission denied'))", it's likely you need to grant 'rw' permission to all users for the docker.sock file. Do so by running `sudo chmod 666 /var/run/docker.sock`. Read [this SO](https://stackoverflow.com/questions/62499661/airflow-dockeroperator-fails-with-permission-denied-error) for more details.
-- If no error, running `poetry run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
+- If no error, running `uv run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
 
 > [!NOTE]
 > **Undo the append**
-> In case you want to undo the append, run: `cd $ROOT_DIR/feature_pipeline/notebooks && poetry run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb`
+> In case you want to undo the append, run: `cd $ROOT_DIR/feature_pipeline/notebooks && uv run papermill 003-undo-append.ipynb papermill-output/003-undo-append.ipynb`
 
 ### Update features
 - Now after we have new data in our OLTP source, we should be able to update our Feature Store
@@ -203,8 +201,8 @@ echo "We should expect to see new feature values corresponding to new timestamp"
 You can choose to run either Non-docker version or Docker version below. The non-docker runs faster while the docker version is used to test packaged version of the run, which can be deployed on remote containerized computing infras.
 ## Non-docker version
 ```shell
-cd $ROOT_DIR/notebooks && poetry run python 00-training-pipeline.py
-cd $ROOT_DIR/notebooks && poetry run python 00-batch-reco-pipeline.py
+cd $ROOT_DIR/notebooks && uv run python 00-training-pipeline.py
+cd $ROOT_DIR/notebooks && uv run python 00-batch-reco-pipeline.py
 ```
 
 ## Docker version
@@ -227,7 +225,7 @@ echo "Visit http://localhost:8000/docs to interact with the APIs"
 This section assumes we have run `make ml-platform-up`, `make feature-server-up` and `make api-up`
 ```shell
 cd $ROOT_DIR/ui
-poetry run gradio app.py
+uv run gradio app.py
 ```
 
 Then you can try to rate some items and then see if the recommendations are updated accordingly.
@@ -263,7 +261,7 @@ Then you can try to rate some items and then see if the recommendations are upda
 ```shell
 cd $ROOT_DIR
 poetry install  # Run this when declaring `packages = [{ include = "src" }]` in pyproject.toml would register the ROOT_DIR in poetry PYTHONPATH.
-poetry run pytest -vs tests --disable-warnings
+uv run pytest -vs tests --disable-warnings
 ```
 
 ## Data Validation tests
@@ -358,8 +356,8 @@ The implementation is as follows:
 1. Add new source of tag-item mapper based on LLM extracted to our OLTP and Redis by running [notebook 041](./notebooks/041-upload-llm-tags-to-db.ipynb).
 2. Build a rule-based scoring model named `user_tag_pref` to assign score between (user, tag) pairs: Look at [this SQL model](./feature_pipeline/dbt/feature_store/models/marts/user_tag_pref/user_tag_pref_v1.sql).
 3. Comment out the line with `user/user_tag_pref.py` in `$ROOT_DIR/feature_pipeline/feature_store/feature_repo/.feastignore` so that Feast will now see the file.
-4. Run the above SQL transformation with `cd $ROOT_DIR/feature_pipeline/dbt/feature_store && poetry run dbt build --models marts.user_tag_pref`.
-5. Materialize the output user_tag_pref: `cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo && poetry run feast apply && poetry run feast materialize "1970-01-01" "2022-07-16" -v user_tag_pref`.
+4. Run the above SQL transformation with `cd $ROOT_DIR/feature_pipeline/dbt/feature_store && uv run dbt build --models marts.user_tag_pref`.
+5. Materialize the output user_tag_pref: `cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo && uv run feast apply && uv run feast materialize "1970-01-01" "2022-07-16" -v user_tag_pref`.
 6. Make API call to `/recs/u2i/rerank_v2`:
   6.1. Here we check the `user_tag_pref` model output precomputed for that user, sample one tag from the top scored tags. Please refer to the endpoint `/recs/retrieve/user_tag_pref` in [API implementation](./api/main.py).
   6.2. Retrieve the items belonging to that tag as our retrieve outputs.

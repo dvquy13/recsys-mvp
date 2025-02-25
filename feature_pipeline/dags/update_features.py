@@ -44,7 +44,7 @@ t1 = DockerOperator(
     image="recsys-mvp-pipeline:0.0.1",
     api_version="auto",
     auto_remove=True,
-    command="sh -c 'cd ../dbt/feature_store && poetry run dbt deps && poetry run dbt build --models marts.amz_review_rating'",
+    command="sh -c 'cd ../dbt/feature_store && uv run dbt deps && uv run dbt build --models marts.amz_review_rating'",
     docker_url="unix://var/run/docker.sock",
     network_mode="host",
     dag=dag,
@@ -57,9 +57,9 @@ t2 = DockerOperator(
     auto_remove=True,
     command="""
         sh -c 'cd ../feature_store/feature_repo && 
-        poetry run feast apply &&
+        uv run feast apply &&
         CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S") &&
-        poetry run feast materialize-incremental $CURRENT_TIME'
+        uv run feast materialize-incremental $CURRENT_TIME'
     """,
     docker_url="unix://var/run/docker.sock",
     network_mode="host",
