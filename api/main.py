@@ -24,6 +24,8 @@ logger.add(
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | request_id: {extra[rec_id]} - {message}",
 )
 
+# Global flag to control user_tag_pref usage
+USE_USER_TAG_PREF = os.getenv("USE_USER_TAG_PREF", "false").lower() == "true"
 
 SEQRP_MODEL_SERVER_URL = os.getenv("SEQRP_MODEL_SERVER_URL", "http://localhost:3000")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -178,7 +180,7 @@ async def get_recommendations_u2i_rerank(
     reranked_metadata = reranked_recs.get("metadata", {})
     if not scores or len(scores) != len(all_items):
         error_message = "[DEBUG] Mismatch sizes between returned scores and all items"
-        logger.debugr("{}", error_message)
+        logger.debug(error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
     # Create a list of tuples (item_id, score)
@@ -209,7 +211,7 @@ async def get_recommendations_u2i_rerank(
     summary="End-to-end retrieve-rerank flow from user to item recommendations",
 )
 @debug_logging_decorator
-async def get_recommendations_u2i_rerank(
+async def get_recommendations_u2i_rerank_v2(
     user_id: str = Query(
         ..., description="ID of the user to provide recommendations for"
     ),
@@ -222,16 +224,25 @@ async def get_recommendations_u2i_rerank(
     rec_title = "Recommended For You"
     retrievers = []
 
-    # Get retrieves concurrently
-    popular_recs, last_item_i2i_recs, user_tag_pref = await asyncio.gather(
-        get_recommendations_popular(count=top_k_retrieval, debug=False),
-        get_recommendations_u2i_last_item_i2i(
-            user_id=user_id, count=top_k_retrieval, debug=False
-        ),
-        retrieve_user_tag_pref(user_id=user_id, count=10, debug=False),
-    )
+    # Conditionally include user_tag_pref retrieval based on the flag
+    if USE_USER_TAG_PREF:
+        popular_recs, last_item_i2i_recs, user_tag_pref = await asyncio.gather(
+            get_recommendations_popular(count=top_k_retrieval, debug=False),
+            get_recommendations_u2i_last_item_i2i(
+                user_id=user_id, count=top_k_retrieval, debug=False
+            ),
+            retrieve_user_tag_pref(user_id=user_id, count=10, debug=False),
+        )
+    else:
+        popular_recs, last_item_i2i_recs = await asyncio.gather(
+            get_recommendations_popular(count=top_k_retrieval, debug=False),
+            get_recommendations_u2i_last_item_i2i(
+                user_id=user_id, count=top_k_retrieval, debug=False
+            ),
+        )
+        user_tag_pref = {"data": []}
 
-    # Prioritize user_tag_pref retrieve
+    # Prioritize user_tag_pref retrieve if available
     if user_tags := user_tag_pref.get("data"):
         logger.debug(f"Creating retrieve based on user tag preferences {user_tags}...")
         # Get top 5 tags. The list user tags is sorted by score already.
@@ -247,7 +258,7 @@ async def get_recommendations_u2i_rerank(
         rec_title = f"Based on Your Interest in {tag} Titles"
         retrievers.append("user_tag_pref")
     else:
-        logger.debug(f"Merging popular retrieve and last item i2i retrieve...")
+        logger.debug("Merging popular and last_item_i2i recommendations...")
         # Merge popular and i2i recommendations
         all_items = set(popular_recs["recommendations"]["rec_item_ids"]).union(
             set(last_item_i2i_recs["recommendations"]["rec_item_ids"])
@@ -283,7 +294,7 @@ async def get_recommendations_u2i_rerank(
     reranked_metadata = reranked_recs.get("metadata", {})
     if not scores or len(scores) != len(all_items):
         error_message = "[DEBUG] Mismatch sizes between returned scores and all items"
-        logger.debugr("{}", error_message)
+        logger.debug(error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
     # Create a list of tuples (item_id, score)
@@ -329,6 +340,11 @@ async def retrieve_user_tag_pref(
     count: Optional[int] = Query(10, description="Number of items to return"),
     debug: bool = Query(False, description="Enable debug logging"),
 ):
+    # If the feature flag is off, simply return an empty result.
+    if not USE_USER_TAG_PREF:
+        logger.info("User tag preference feature is disabled.")
+        return {"data": []}
+
     feature_view = "user_tag_pref"
     user_tag_pref_feature = FeatureRequestFeature(
         feature_view=feature_view, feature_name="user_tag_pref_score_full_list"
@@ -404,7 +420,6 @@ async def score_seq_rating_prediction(
                 f"[COLLECT] Response from external service: <result>{json.dumps(response.json())}</result>"
             )
             result = response.json()
-
             return result
         else:
             error_message = (

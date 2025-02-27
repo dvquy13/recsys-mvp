@@ -4,27 +4,18 @@ authors = [
 ]
 requires-python = "==3.11.9"
 dependencies = [
-    "torch<3.0.0,>=2.4.1",
     "pandas<2.2.0",
     "loguru<1.0.0,>=0.7.2",
     "python-dotenv<2.0.0,>=1.0.1",
     "datasets<3.0.0,>=2.21.0",
     "pydantic<3.0.0,>=2.9.0",
-    "scikit-learn<2.0.0,>=1.5.1",
-    "evidently<1.0.0,>=0.4.37",
-    "mlflow<3.0.0,>=2.16.0",
     "pytest<9.0.0,>=8.3.3",
-    "onnx<2.0.0,>=1.16.2",
     "dill<1.0.0,>=0.3.8",
-    "lightning<3.0.0,>=2.4.0",
     "redis<6.0.0,>=5.1.0",
-    "fastapi<1.0.0,>=0.115.0",
-    "bentoml<2.0.0,>=1.3.7",
     "numpy<2.0",
     "boto3<2.0.0,>=1.35.37",
     "qdrant-client==1.12.0",
     "sqlalchemy<2.0",
-    "sentence-transformers<4.0.0,>=3.2.1",
     "openai<2.0.0,>=1.54.1",
 ]
 name = "recsys-mvp"
@@ -34,27 +25,46 @@ readme = "README.md"
 package-mode = true
 
 [dependency-groups]
-training = [
-    "papermill<3.0.0,>=2.6.0",
-    "jupyterlab<5.0.0,>=4.2.5",
-    "tensorboard<3.0.0,>=2.18.0",
+ml = [
+    "sentence-transformers<4.0.0,>=3.2.1",
+    "onnx<2.0.0,>=1.16.2",
+    "torch<3.0.0,>=2.4.1",
+    "scikit-learn<2.0.0,>=1.5.1",
+    "mlflow<3.0.0,>=2.16.0",
+    "lightning<3.0.0,>=2.4.0",
+    "evidently<1.0.0,>=0.4.37",
 ]
 pipeline = [
+    "papermill<3.0.0,>=2.6.0",
+    "ipykernel>=6.29.5",  # Need here so that papermill does not complain no kernel python3
+]
+features = [
     "apache-airflow[postgres]==2.10.2",
     "apache-airflow-providers-docker<4.0.0,>=3.14.0",
     "dbt-core<2.0.0,>=1.8.5",
     "dbt-postgres<2.0.0,>=1.8.2",
     "psycopg2<3.0.0,>=2.9.9",
-    "feast[postgres]<1.0.0,>=0.40.1",
+    "feast[postgres]==0.40.1",
 ]
-dev = [
-    "ipywidgets<9.0.0,>=8.1.5",
+# Avoid naming this group `dev` because `dev` is a special case that may lead to unexpected Docker redownloading behavior
+# Ref: https://docs.astral.sh/uv/concepts/projects/dependencies/#optional-dependencies
+development = [
     "black<25.0.0,>=24.8.0",
     "isort<6.0.0,>=5.13.2",
     "plotly<6.0.0,>=5.24.0",
     "xgboost<3.0.0,>=2.1.2",
     "shap<1.0.0,>=0.46.0",
+    "jupyterlab<5.0.0,>=4.2.5",
+    "tensorboard<3.0.0,>=2.18.0",
+    "ipywidgets<9.0.0,>=8.1.5",
 ]
 ui = [
-    "gradio<6.0.0,>=5.1.0",
+    "gradio==5.1.0",  # Fix this version to avoid breaking changes (observed breaks with 5.7.0)
+]
+serving = [
+    "bentoml<2.0.0,>=1.3.7",
+    "fastapi<1.0.0,>=0.115.0",
+    # Prevent ModuleNotFoundError: No module named 'multipart.multipart'; 'multipart' is not a package
+    # Ref: https://github.com/gradio-app/gradio/issues/9774
+    "python-multipart==0.0.12"
 ]

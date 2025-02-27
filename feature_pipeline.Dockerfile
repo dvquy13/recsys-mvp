@@ -22,7 +22,7 @@ WORKDIR /app
 COPY uv.lock pyproject.toml ./
 
 # Install Python dependencies using Poetry
-RUN uv sync --group pipeline --group training --no-group dev
+RUN uv sync --group features --group pipeline
 
 COPY feature_pipeline/notebooks/*.ipynb ./feature_pipeline/notebooks/
 COPY feature_pipeline/notebooks/*.py ./feature_pipeline/notebooks/

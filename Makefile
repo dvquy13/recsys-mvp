@@ -34,8 +34,9 @@ api-down:
 
 # Create the requirements.txt file and update the torch to CPU version to reduce the image size
 requirements-txt:
-	poetry export --without dev --without-hashes --format=requirements.txt > requirements.txt
-	sed '/^torch/ s/^/# /' requirements.txt > .tmp && mv .tmp requirements.txt  # Commend out torch in requirements.txt to pre-install the CPU version in Docker
+	uv export --group serving --group ml --no-hashes --format requirements-txt > requirements.txt
+	# Commend out torch in requirements.txt to pre-install the CPU version in Docker
+	sed '/^torch/ s/^/# /' requirements.txt > .tmp && mv .tmp requirements.txt
 	sed '/^nvidia/ s/^/# /' requirements.txt > .tmp && mv .tmp requirements.txt
 
 build-pipeline:

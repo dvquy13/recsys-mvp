@@ -16,7 +16,7 @@
 # Set up
 - Create a new `.env` file based on `.env.example` and populate the variables there
 - Set up env var $ROOT_DIR: `export ROOT_DIR=$(pwd) && sed "s|^ROOT_DIR=.*|ROOT_DIR=$ROOT_DIR|" .env > .tmp && mv .tmp .env`
-- Run `export $(grep -v '^#' .env | xargs)` to load the variables
+- Run `cd $ROOT_DIR && export $(grep -v '^#' .env | xargs)` to load the variables
 - Run `uv sync --all-groups` to install the dependencies
 
 > [!TIP]
@@ -52,7 +52,7 @@ make airflow-up && make airflow-logs
 ## Sample data
 ```shell
 echo "To start, we need to sample our main dataset from the bigger upstream dataset"
-cd $ROOT_DIR/notebooks && uv run python 00-prep-data.py
+cd $ROOT_DIR/notebooks && uv run 00-prep-data.py
 ```
 
 ## Simulate transaction data
@@ -111,7 +111,7 @@ uv run dbt build --models marts.amz_review_rating
 # CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S")
 # We can not use CURRENT_TIME here since it would mark the latest ingestion at CURRENT_TIME which is way pass the last timestamp for our data
 # So later we can not demo the flow to update feature store
-cd $ROOT_DIR && MATERIALIZE_CHECKPOINT_TIME=$(uv run python scripts/check_oltp_max_timestamp.py 2>&1 | awk -F'<ts>|</ts>' '{print $2}')
+cd $ROOT_DIR && MATERIALIZE_CHECKPOINT_TIME=$(uv run scripts/check_oltp_max_timestamp.py 2>&1 | awk -F'<ts>|</ts>' '{print $2}')
 echo "MATERIALIZE_CHECKPOINT_TIME=$MATERIALIZE_CHECKPOINT_TIME"
 cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo
 uv run feast apply
@@ -124,13 +124,13 @@ Set up Feature Server to serve both online and offline features
 ```shell
 cd $ROOT_DIR
 make feature-server-up
-sleep 5 && echo "Visit Feature Store Web UI at: http://localhost:${FEAST_UI_PORT:-8887}"
+sleep 5 && echo "Visit Feature Store Web UI at: http://localhost:${FEAST_UI_PORT:-8887}."
 ```
 
 Make feature request to Feature Server:
 ```shell
 # Create a new shell
-USER_ID=$(uv run python scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}') && echo $USER_ID
+USER_ID=$(uv run scripts/get_holdout_user_id.py 2>&1 | awk -F'<user_id>|</user_id>' '{print $2}') && echo $USER_ID
 # Use double quotes in curl -d to enable env var $USER_ID substitution
 curl -X POST \
   "http://localhost:6566/get-online-features" \
@@ -159,14 +159,14 @@ Here we manually update our source OLTP data with new data, simulating new data 
 cd $ROOT_DIR
 make build-pipeline
 echo "Check the OLTP table to see the latest timestamp"
-uv run python scripts/check_oltp_max_timestamp.py
+uv run scripts/check_oltp_max_timestamp.py
 echo "Expect to see something like 2022-06-15. Later after we run the Airflow pipeline to trigger 002-append-hold-to-oltp notebook we should see new max timestamp denoting new data added"
 ```
 
 - Now go to Airflow UI http://localhost:8081, username=airflow password=airflow
 - Trigger the DAG named `append_oltp`. Check the DAG run logs to see if there are any errors.
   - In case the error log says: "Failed to establish connection to Docker host unix://var/run/docker.sock: Error while fetching server API version: ('Connection aborted.', PermissionError(13, 'Permission denied'))", it's likely you need to grant 'rw' permission to all users for the docker.sock file. Do so by running `sudo chmod 666 /var/run/docker.sock`. Read [this SO](https://stackoverflow.com/questions/62499661/airflow-dockeroperator-fails-with-permission-denied-error) for more details.
-- If no error, running `uv run python scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
+- If no error, running `uv run scripts/check_oltp_max_timestamp.py` again should yield a later date like 2022-07-16, which means just now we have a new round of OLTP data in our system.
 
 > [!NOTE]
 > **Undo the append**
@@ -201,8 +201,8 @@ echo "We should expect to see new feature values corresponding to new timestamp"
 You can choose to run either Non-docker version or Docker version below. The non-docker runs faster while the docker version is used to test packaged version of the run, which can be deployed on remote containerized computing infras.
 ## Non-docker version
 ```shell
-cd $ROOT_DIR/notebooks && uv run python 00-training-pipeline.py
-cd $ROOT_DIR/notebooks && uv run python 00-batch-reco-pipeline.py
+cd $ROOT_DIR/notebooks && uv run 00-training-pipeline.py
+cd $ROOT_DIR/notebooks && uv run 00-batch-reco-pipeline.py
 ```
 
 ## Docker version
@@ -353,6 +353,7 @@ Notice that `.metadata.rec_id` should contain the same unique request id as in t
 The idea of explainability here is to leverage tag systems to score which tag a specific user may be interested in.
 For example if we found a user buying a lot of items with the tag "ARPG" then we would retrieve the ARPG items and rank them with our ranker, then showing the recommendations as "Based on Your Interest in ARPG".
 The implementation is as follows:
+1. Update the feature flag USE_USER_TAG_PREF from `false` to `true`
 1. Add new source of tag-item mapper based on LLM extracted to our OLTP and Redis by running [notebook 041](./notebooks/041-upload-llm-tags-to-db.ipynb).
 2. Build a rule-based scoring model named `user_tag_pref` to assign score between (user, tag) pairs: Look at [this SQL model](./feature_pipeline/dbt/feature_store/models/marts/user_tag_pref/user_tag_pref_v1.sql).
 3. Comment out the line with `user/user_tag_pref.py` in `$ROOT_DIR/feature_pipeline/feature_store/feature_repo/.feastignore` so that Feast will now see the file.

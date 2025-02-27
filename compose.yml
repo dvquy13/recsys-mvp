@@ -129,7 +129,7 @@ services:
     ports:
       - "${FEAST_ONLINE_SERVER_PORT:-8815}:${FEAST_ONLINE_SERVER_PORT:-6566}"
     working_dir: /app/feature_pipeline/feature_store/feature_repo
-    entrypoint: ["poetry", "run", "feast", "serve", "--port", "${FEAST_ONLINE_SERVER_PORT:-6566}", "--host", "0.0.0.0"]
+    entrypoint: ["uv", "run", "feast", "serve", "--port", "${FEAST_ONLINE_SERVER_PORT:-6566}", "--host", "0.0.0.0"]
 
   feature_offline_server:
     container_name: feature_offline_server
@@ -143,7 +143,7 @@ services:
     ports:
       - "${FEAST_OFFLINE_SERVER_PORT:-8815}:${FEAST_OFFLINE_SERVER_PORT:-8815}"
     working_dir: /app/feature_pipeline/feature_store/feature_repo
-    entrypoint: ["poetry", "run", "feast", "serve_offline", "--port", "${FEAST_OFFLINE_SERVER_PORT:-8815}", "--host", "0.0.0.0"]
+    entrypoint: ["uv", "run", "feast", "serve_offline", "--port", "${FEAST_OFFLINE_SERVER_PORT:-8815}", "--host", "0.0.0.0"]
 
   feature_store_ui:
     container_name: feature_store_ui
@@ -157,7 +157,7 @@ services:
     ports:
       - "${FEAST_UI_PORT:-8887}:${FEAST_UI_PORT:-8887}"
     working_dir: /app/feature_pipeline/feature_store/feature_repo
-    entrypoint: ["poetry", "run", "feast", "ui", "--port", "${FEAST_UI_PORT:-8887}", "--host", "0.0.0.0"]
+    entrypoint: ["uv", "run", "feast", "ui", "--port", "${FEAST_UI_PORT:-8887}", "--host", "0.0.0.0"]
 
 networks:
   recsys-mvp:
