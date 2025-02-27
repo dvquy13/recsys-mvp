@@ -17,6 +17,7 @@ from evidently.report import Report
 from loguru import logger
 from pydantic import BaseModel
 from torch import nn
+from torchmetrics import AUROC
 
 from src.eval.utils import create_label_df, create_rec_df, merge_recs_with_target
 from src.id_mapper import IDMapper
@@ -63,6 +64,9 @@ class LitRanker(L.LightningModule):
         self.neg_to_pos_ratio = neg_to_pos_ratio
         self.checkpoint_callback = checkpoint_callback
         self.accelerator = accelerator
+
+        # Initialize AUROC for binary classification
+        self.val_roc_auc_metric = AUROC(task="binary")
 
     def log_weight_norms(self, stage="train"):
         for name, param in self.model.named_parameters():
@@ -124,6 +128,20 @@ class LitRanker(L.LightningModule):
         loss_fn = self._get_loss_fn(weights)
         loss = loss_fn(predictions, labels)
 
+        # Update AUROC with current batch predictions and labels
+        self.val_roc_auc_metric.update(predictions, labels.int())
+
+        # Compute current running AUROC and log it at each validation step
+        current_roc_auc = self.val_roc_auc_metric.compute()
+        self.log(
+            "val_roc_auc",
+            current_roc_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
         self.log(
             "val_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True
         )
@@ -158,6 +176,12 @@ class LitRanker(L.LightningModule):
 
         if sch is not None:
             self.log("learning_rate", sch.get_last_lr()[0], sync_dist=True)
+
+        # Compute and log the final ROC-AUC for the epoch
+        roc_auc = self.val_roc_auc_metric.compute()
+        self.log("val_roc_auc", roc_auc, sync_dist=True)
+        # Reset the metric for the next epoch
+        self.val_roc_auc_metric.reset()
 
     def on_fit_end(self):
         if self.checkpoint_callback:

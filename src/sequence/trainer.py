@@ -17,6 +17,7 @@ from evidently.report import Report
 from loguru import logger
 from pydantic import BaseModel
 from torch import nn
+from torchmetrics import AUROC
 
 from src.eval.utils import create_label_df, create_rec_df, merge_recs_with_target
 from src.id_mapper import IDMapper
@@ -41,6 +42,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
         evaluate_ranking: bool = False,
         idm: IDMapper = None,
         args: BaseModel = None,
+        checkpoint_callback=None,
         accelerator: str = "cpu",
     ):
         super().__init__()
@@ -49,19 +51,23 @@ class LitSequenceRatingPrediction(L.LightningModule):
         self.l2_reg = l2_reg
         self.log_dir = log_dir
         # Currently _log_ranking_metrics method has a lot of dependencies
-        # It requires IDMapper and a bunch of other paramameters
+        # It requires IDMapper and a bunch of other parameters
         # TODO: Refactor
         self.evaluate_ranking = evaluate_ranking
         self.idm = idm
         self.args = args
         self.accelerator = accelerator
+        self.checkpoint_callback = checkpoint_callback
+
+        # Initialize AUROC for binary classification
+        self.val_roc_auc_metric = AUROC(task="binary")
 
     def training_step(self, batch, batch_idx):
         input_user_ids = batch["user"]
         input_item_ids = batch["item"]
         input_item_sequences = batch["item_sequence"]
 
-        # If not squeeze then mismatched shapes between predictions and labels, even though code still run but can not converge
+        # Ensure shapes match by squeezing if necessary
         labels = batch["rating"].float()
         predictions = self.model.forward(
             input_user_ids, input_item_sequences, input_item_ids
@@ -93,6 +99,20 @@ class LitSequenceRatingPrediction(L.LightningModule):
         loss_fn = self._get_loss_fn()
         loss = loss_fn(predictions, labels)
 
+        # Update AUROC with current batch predictions and labels
+        self.val_roc_auc_metric.update(predictions, labels.int())
+
+        # Compute current running AUROC and log it at each validation step
+        current_roc_auc = self.val_roc_auc_metric.compute()
+        self.log(
+            "val_roc_auc",
+            current_roc_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
         self.log(
             "val_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True
         )
@@ -122,7 +142,20 @@ class LitSequenceRatingPrediction(L.LightningModule):
         if sch is not None:
             self.log("learning_rate", sch.get_last_lr()[0], sync_dist=True)
 
+        # Compute and log the final ROC-AUC for the epoch
+        roc_auc = self.val_roc_auc_metric.compute()
+        self.log("val_roc_auc", roc_auc, sync_dist=True)
+        # Reset the metric for the next epoch
+        self.val_roc_auc_metric.reset()
+
     def on_fit_end(self):
+        if self.checkpoint_callback:
+            logger.info(
+                f"Loading best model from {self.checkpoint_callback.best_model_path}..."
+            )
+            self.model = LitSequenceRatingPrediction.load_from_checkpoint(
+                self.checkpoint_callback.best_model_path, model=self.model
+            ).model
         self.model = self.model.to(self._get_device())
         logger.info(f"Logging classification metrics...")
         self._log_classification_metrics()
@@ -130,11 +163,8 @@ class LitSequenceRatingPrediction(L.LightningModule):
             logger.info(f"Logging ranking metrics...")
             self._log_ranking_metrics()
 
-    def _log_classification_metrics(
-        self,
-    ):
-        # Need to call model.eval() here to disable dropout and batchnorm at prediction
-        # Else the model output score would be severely affected
+    def _log_classification_metrics(self):
+        # Set model to evaluation mode to disable dropout and batchnorm
         self.model.eval()
 
         val_loader = self.trainer.val_dataloaders
@@ -163,7 +193,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         self.eval_classification_df = eval_classification_df
 
-        # Evidently
+        # Evidently report
         target_col = "label"
         prediction_col = "classification_proba"
         column_mapping = ColumnMapping(target=target_col, prediction=prediction_col)
@@ -236,9 +266,7 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         val_df = self.trainer.val_dataloaders.dataset.df
 
-        # Prepare input dataframe for prediction where user_indice is unique and item_sequence contains the last interaction in training data
-        # Retain the first row of each user and use that as input for recommendations
-        # We would compare that predictions with all the items this customer rates in val set
+        # Prepare recommendations using the last interaction per user
         to_rec_df = val_df.sort_values(timestamp_col, ascending=True).drop_duplicates(
             subset=[user_col]
         )
@@ -319,7 +347,6 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
     def _get_loss_fn(self):
         return nn.BCELoss()
-        # return nn.MSELoss()
 
     def _get_device(self):
         return self.accelerator
