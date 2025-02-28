@@ -2,7 +2,6 @@
 
 # Prerequisite
 - uv >= 0.6.2
-- Miniconda or alternatives that can create new Python environment with a specified Python version
 - Docker
 - PostgreSQL
   - For Mac, run: `brew install postgresql`
