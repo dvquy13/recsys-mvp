@@ -17,7 +17,7 @@ from evidently.report import Report
 from loguru import logger
 from pydantic import BaseModel
 from torch import nn
-from torchmetrics import AUROC
+from torchmetrics import AUROC, AveragePrecision
 
 from src.eval.utils import create_label_df, create_rec_df, merge_recs_with_target
 from src.id_mapper import IDMapper
@@ -61,6 +61,8 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         # Initialize AUROC for binary classification
         self.val_roc_auc_metric = AUROC(task="binary")
+        # Initialize PR-AUC for binary classification
+        self.val_pr_auc_metric = AveragePrecision(task="binary")
 
     def training_step(self, batch, batch_idx):
         input_user_ids = batch["user"]
@@ -101,17 +103,8 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         # Update AUROC with current batch predictions and labels
         self.val_roc_auc_metric.update(predictions, labels.int())
-
-        # Compute current running AUROC and log it at each validation step
-        current_roc_auc = self.val_roc_auc_metric.compute()
-        self.log(
-            "val_roc_auc",
-            current_roc_auc,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-            sync_dist=True,
-        )
+        # Update PR-AUC with current batch predictions and labels
+        self.val_pr_auc_metric.update(predictions, labels.int())
 
         self.log(
             "val_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True
@@ -144,9 +137,28 @@ class LitSequenceRatingPrediction(L.LightningModule):
 
         # Compute and log the final ROC-AUC for the epoch
         roc_auc = self.val_roc_auc_metric.compute()
-        self.log("val_roc_auc", roc_auc, sync_dist=True)
+        pr_auc = self.val_pr_auc_metric.compute()
+
+        self.log(
+            "val_roc_auc",
+            roc_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+        self.log(
+            "val_pr_auc",
+            pr_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
         # Reset the metric for the next epoch
         self.val_roc_auc_metric.reset()
+        self.val_pr_auc_metric.reset()
 
     def on_fit_end(self):
         if self.checkpoint_callback:
@@ -217,11 +229,23 @@ class LitSequenceRatingPrediction(L.LightningModule):
             run_id = self.logger.run_id
             mlf_client = self.logger.experiment
             mlf_client.log_artifact(run_id, evidently_report_fp)
+
+            # Calculate PR-AUC using torchmetrics for MLflow
+            labels_tensor = torch.tensor(
+                eval_classification_df[target_col].values, dtype=torch.int
+            )
+            probs_tensor = torch.tensor(
+                eval_classification_df["classification_proba"].values, dtype=torch.float
+            )
+            pr_auc_metric = AveragePrecision(task="binary")
+            pr_auc = pr_auc_metric(probs_tensor, labels_tensor).item()
+            mlf_client.log_metric(run_id, "pr_auc", pr_auc)
+
             for metric_result in classification_performance_report.as_dict()["metrics"]:
                 metric = metric_result["metric"]
                 if metric == "ClassificationQualityMetric":
                     roc_auc = float(metric_result["result"]["current"]["roc_auc"])
-                    mlf_client.log_metric(run_id, f"val_roc_auc", roc_auc)
+                    mlf_client.log_metric(run_id, f"roc_auc", roc_auc)
                     continue
                 if metric == "ClassificationPRTable":
                     columns = [

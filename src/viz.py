@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class BlueQColors(BaseModel):
-    main: str = "#114B8F"
+    main: str = "#0057a3"
     others: List[str] = [
         "#248F11",
         "#8F6211",

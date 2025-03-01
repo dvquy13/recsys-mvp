@@ -48,7 +48,9 @@ class ModelMetricsComparisonVisualizer:
             metric_dict, orient="index", columns=["value"]
         ).reset_index(names=["metric"])
         selected_metrics = [
-            metric for metric in df["metric"].values if metric.startswith("val_")
+            metric
+            for metric in df["metric"].values
+            if metric.startswith("val_") or metric in ("roc_auc", "pr_auc")
         ]
         return df.loc[lambda df: df["metric"].isin(selected_metrics)].set_index(
             "metric"

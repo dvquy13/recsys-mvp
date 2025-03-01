@@ -229,11 +229,15 @@ uv run gradio app.py
 
 Then you can try to rate some items and then see if the recommendations are updated accordingly.
 
-# Improve
+# Improve model accuracy
+
+Prerequisite: `make ml-platform-up` is running.
+
 ## Add new features
 - Double check [RunCfg](./cfg/run_cfg.py) to have both `use_sbert_features` and `use_item_tags_from_llm` set to `False`
 - Run [notebook 022-ranker](./notebooks/022-ranker.ipynb) to refit the ranker with more features where we aim to reach ROC-AUC ~ 0.87
 - In between check out the [notebook 030-error-analysis](./notebooks/030-error-analysis.ipynb) to dive into the model resutls
+  - You should run the notebook with args.run_llm_judge = False
 
 ## Use LLM features
 

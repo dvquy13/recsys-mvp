@@ -6,7 +6,9 @@ import torch
 from evidently.metric_preset import ClassificationPreset
 from evidently.pipeline.column_mapping import ColumnMapping
 from evidently.report import Report
+from loguru import logger
 from torch import nn
+from torchmetrics import AUROC, AveragePrecision
 
 from .model import SkipGram
 
@@ -14,22 +16,31 @@ from .model import SkipGram
 class LitSkipGram(L.LightningModule):
     def __init__(
         self,
-        skipgram_model: SkipGram,
-        learning_rate: float = 0.001,
+        model: SkipGram,
+        learning_rate: float = 0.01,
         l2_reg: float = 1e-5,
         log_dir: str = ".",
+        checkpoint_callback=None,
+        accelerator: str = "cpu",
     ):
         super().__init__()
-        self.skipgram_model = skipgram_model
+        self.model = model
         self.learning_rate = learning_rate
         self.l2_reg = l2_reg
         self.log_dir = log_dir
+        self.accelerator = accelerator
+        self.checkpoint_callback = checkpoint_callback
+
+        # Initialize AUROC for binary classification
+        self.val_roc_auc_metric = AUROC(task="binary")
+        # Initialize PR-AUC for binary classification
+        self.val_pr_auc_metric = AveragePrecision(task="binary")
 
     def training_step(self, batch, batch_idx):
         target_items = batch["target_items"]
         context_items = batch["context_items"]
 
-        predictions = self.skipgram_model.forward(target_items, context_items)
+        predictions = self.model.forward(target_items, context_items)
         labels = batch["labels"].float().squeeze()
 
         loss_fn = nn.BCELoss()
@@ -49,11 +60,16 @@ class LitSkipGram(L.LightningModule):
         target_items = batch["target_items"]
         context_items = batch["context_items"]
 
-        predictions = self.skipgram_model.forward(target_items, context_items)
+        predictions = self.model.forward(target_items, context_items)
         labels = batch["labels"].float().squeeze()
 
         loss_fn = nn.BCELoss()
         loss = loss_fn(predictions, labels)
+
+        # Update AUROC with current batch predictions and labels
+        self.val_roc_auc_metric.update(predictions, labels.int())
+        # Update PR-AUC with current batch predictions and labels
+        self.val_pr_auc_metric.update(predictions, labels.int())
 
         self.log(
             "val_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True
@@ -63,7 +79,7 @@ class LitSkipGram(L.LightningModule):
     def configure_optimizers(self):
         # Create the optimizer
         optimizer = torch.optim.Adam(
-            self.skipgram_model.parameters(),
+            self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg,
         )
@@ -84,39 +100,66 @@ class LitSkipGram(L.LightningModule):
         if sch is not None:
             self.log("learning_rate", sch.get_last_lr()[0], sync_dist=True)
 
-    def on_fit_end(self):
-        self._log_classification_metrics(self.trainer.val_dataloaders)
+        # Compute and log the final metrics for the epoch
+        roc_auc = self.val_roc_auc_metric.compute()
+        pr_auc = self.val_pr_auc_metric.compute()
 
-    def _log_classification_metrics(self, val_loader):
-        target_items = []
-        context_items = []
+        self.log(
+            "val_roc_auc",
+            roc_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+        self.log(
+            "val_pr_auc",
+            pr_auc,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
+        # Reset the metrics for the next epoch
+        self.val_roc_auc_metric.reset()
+        self.val_pr_auc_metric.reset()
+
+    def on_fit_end(self):
+        if self.checkpoint_callback:
+            logger.info(
+                f"Loading best model from {self.checkpoint_callback.best_model_path}..."
+            )
+            self.model = LitSkipGram.load_from_checkpoint(
+                self.checkpoint_callback.best_model_path, model=self.model
+            ).model
+        self.model = self.model.to(self._get_device())
+        logger.info(f"Logging classification metrics...")
+        self._log_classification_metrics()
+
+    def _log_classification_metrics(self):
+        self.model.eval()
+
+        val_loader = self.trainer.val_dataloaders
+
         labels = []
+        classifications = []
 
         for _, batch_input in enumerate(val_loader):
-            _target_items = batch_input["target_items"].cpu().detach().numpy()
-            _context_items = batch_input["context_items"].cpu().detach().numpy()
-            _labels = batch_input["labels"].cpu().detach().numpy()
+            _target_items = batch_input["target_items"].to(self._get_device())
+            _context_items = batch_input["context_items"].to(self._get_device())
+            _labels = batch_input["labels"].to(self._get_device())
+            _classifications = self.model(_target_items, _context_items)
 
-            target_items.extend(_target_items)
-            context_items.extend(_context_items)
-            labels.extend(_labels)
+            labels.extend(_labels.cpu().detach().numpy())
+            classifications.extend(_classifications.cpu().detach().numpy())
 
-        val_df = pd.DataFrame(
+        eval_classification_df = pd.DataFrame(
             {
-                "target_items": target_items,
-                "context_items": context_items,
                 "labels": labels,
+                "classification_proba": classifications,
             }
-        )
-
-        target_items = torch.tensor(val_df["target_items"].values, device=self.device)
-        context_items = torch.tensor(val_df["context_items"].values, device=self.device)
-        classifications = self.skipgram_model(target_items, context_items)
-
-        eval_classification_df = val_df.assign(
-            classification_proba=classifications.cpu().detach().numpy(),
-            label=lambda df: df["labels"].astype(int),
-        )
+        ).assign(label=lambda df: df["labels"].gt(0).astype(int))
 
         # Evidently
         target_col = "label"
@@ -142,11 +185,23 @@ class LitSkipGram(L.LightningModule):
             run_id = self.logger.run_id
             mlf_client = self.logger.experiment
             mlf_client.log_artifact(run_id, evidently_report_fp)
+
+            # Calculate PR-AUC using torchmetrics for MLflow
+            labels_tensor = torch.tensor(
+                eval_classification_df[target_col].values, dtype=torch.int
+            )
+            probs_tensor = torch.tensor(
+                eval_classification_df["classification_proba"].values, dtype=torch.float
+            )
+            pr_auc_metric = AveragePrecision(task="binary")
+            pr_auc = pr_auc_metric(probs_tensor, labels_tensor).item()
+            mlf_client.log_metric(run_id, "pr_auc", pr_auc)
+
             for metric_result in classification_performance_report.as_dict()["metrics"]:
                 metric = metric_result["metric"]
                 if metric == "ClassificationQualityMetric":
                     roc_auc = float(metric_result["result"]["current"]["roc_auc"])
-                    mlf_client.log_metric(run_id, f"val_roc_auc", roc_auc)
+                    mlf_client.log_metric(run_id, f"roc_auc", roc_auc)
                     continue
                 if metric == "ClassificationPRTable":
                     columns = [
@@ -177,3 +232,6 @@ class LitSkipGram(L.LightningModule):
                             step=prob,
                         )
                     break
+
+    def _get_device(self):
+        return self.accelerator
