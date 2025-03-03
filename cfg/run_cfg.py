@@ -8,8 +8,8 @@ from llm.cfg_mod import LLMItemTagsCfg
 
 class RunCfg(BaseModel):
     # Feature flags
-    use_sbert_features: bool = False
-    use_item_tags_from_llm: bool = False
+    use_sbert_features: bool = True
+    use_item_tags_from_llm: bool = True
 
     item_feature_cols: List[str] = [
         "main_category",
