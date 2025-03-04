@@ -245,7 +245,7 @@ Prerequisite: `make ml-platform-up` is running.
 - Open [RunCfg](./cfg/run_cfg.py) and set `use_sbert_features` = True but keep `use_item_tags_from_llm` to `False`
 
 ### Use SBERT to get embeddings of long textual features
-- Make sure you have run `make ml-platform-up and make feature-server-up`
+- Make sure you have run `make ml-platform-up` and `make feature-server-up`
 - Run [notebook 016-sbert](./notebooks/016-sentence-transformers.ipynb) to build SBERT features for text item descriptions
 - Re-run notebook [022](./notebooks/022-ranker.ipynb) to check the results
 ### Extract item tags from LLM
