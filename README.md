@@ -263,7 +263,7 @@ Prerequisite: `make ml-platform-up` is running.
 ## Unit tests and Functional tests
 ```shell
 cd $ROOT_DIR
-poetry install  # Run this when declaring `packages = [{ include = "src" }]` in pyproject.toml would register the ROOT_DIR in poetry PYTHONPATH.
+export PYTHONPATH=$ROOT_DIR
 uv run pytest -vs tests --disable-warnings
 ```
 

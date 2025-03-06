@@ -22,7 +22,16 @@ name = "recsys-mvp"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-package-mode = true
+
+[tool.uv]
+# Setting package = true would install the package inside src/ folder
+# After that we can use `import ann` if there is a module src/ann.py
+# This is not the same as Poetry `packages = [{ include = "src" }]`
+# which would install the package at the project level hence allowing
+# us to be able to use `import src.ann` instead.
+# Since now our code is structured towards `import src.ann` use case,
+# We set uv `package = false` and use `export PYTHONPATH=$ROOT_DIR` instead.
+package = false
 
 [dependency-groups]
 ml = [
