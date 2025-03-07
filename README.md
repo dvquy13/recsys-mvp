@@ -356,12 +356,14 @@ Notice that `.metadata.rec_id` should contain the same unique request id as in t
 The idea of explainability here is to leverage tag systems to score which tag a specific user may be interested in.
 For example if we found a user buying a lot of items with the tag "ARPG" then we would retrieve the ARPG items and rank them with our ranker, then showing the recommendations as "Based on Your Interest in ARPG".
 The implementation is as follows:
-1. Update the feature flag USE_USER_TAG_PREF from `false` to `true`
+1. In `.env` file, set `USE_USER_TAG_PREF=true`
 1. Add new source of tag-item mapper based on LLM extracted to our OLTP and Redis by running [notebook 041](./notebooks/041-upload-llm-tags-to-db.ipynb).
 2. Build a rule-based scoring model named `user_tag_pref` to assign score between (user, tag) pairs: Look at [this SQL model](./feature_pipeline/dbt/feature_store/models/marts/user_tag_pref/user_tag_pref_v1.sql).
 3. Comment out the line with `user/user_tag_pref.py` in `$ROOT_DIR/feature_pipeline/feature_store/feature_repo/.feastignore` so that Feast will now see the file.
 4. Run the above SQL transformation with `cd $ROOT_DIR/feature_pipeline/dbt/feature_store && uv run dbt build --models marts.user_tag_pref`.
 5. Materialize the output user_tag_pref: `cd $ROOT_DIR/feature_pipeline/feature_store/feature_repo && uv run feast apply && uv run feast materialize "1970-01-01" "2022-07-16" -v user_tag_pref`.
+1. Run `cd $ROOT_DIR && make feature-server-up`
+1. Run `make api-up`
 6. Make API call to `/recs/u2i/rerank_v2`:
   6.1. Here we check the `user_tag_pref` model output precomputed for that user, sample one tag from the top scored tags. Please refer to the endpoint `/recs/retrieve/user_tag_pref` in [API implementation](./api/main.py).
   6.2. Retrieve the items belonging to that tag as our retrieve outputs.
